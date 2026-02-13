@@ -8,7 +8,7 @@
       "resource": "flight:IB3202",
       "parameters": {
         "new_destination": "MAD",
-        "current_fuel_kg": 6000,
+        "current_fuel_kg": 12000,
         "new_distance_nm": 180,
         "current_duty_minutes": 300,
         "additional_flight_minutes": 60,
@@ -46,7 +46,7 @@
       "resource": "flight:DL205",
       "parameters": {
         "new_destination": "BOS",
-        "current_fuel_kg": 8000,
+        "current_fuel_kg": 15000,
         "new_distance_nm": 200,
         "current_duty_minutes": 480,
         "additional_flight_minutes": 90,

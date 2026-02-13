@@ -151,8 +151,8 @@ async def test_ragf_benchmark(neo4j_client):
     assert metrics['false_positive_rate_pct'] <= 10, f"False positive rate {metrics['false_positive_rate_pct']}% > 10%"
     assert metrics['latency_p95_ms'] <= 200, f"p95 latency {metrics['latency_p95_ms']}ms > 200ms"
     
-    # Guardar resultados para LaTeX
-    output_path = Path(__file__).parent.parent / "data" / "benchmark_results.json"
+    # Guardar resultados para LaTeX en /tmp (writable)
+    output_path = Path("/tmp/benchmark_results.json")
     with open(output_path, "w") as f:
         json.dump(metrics, f, indent=2)
     
