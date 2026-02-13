@@ -1,4 +1,4 @@
-version: '3.8'
+# version: '3.8'  # Deprecated in Docker Compose v2
 
 services:
   # ═══════════════════════════════════════════════════════════
@@ -14,8 +14,8 @@ services:
       - NEO4J_apoc_import_file_enabled=true
       - NEO4J_dbms_security_procedures_unrestricted=apoc.*
     ports:
-      - "7474:7474"  # Browser UI
-      - "7687:7687"  # Bolt protocol
+      - "7475:7474"  # Browser UI (changed to avoid conflicts)
+      - "7688:7687"  # Bolt protocol (changed to avoid conflicts)
     volumes:
       - neo4j_data:/data
       - neo4j_logs:/logs
@@ -39,7 +39,7 @@ services:
       - POSTGRES_USER=ragf
       - POSTGRES_PASSWORD=audit_secure_2026
     ports:
-      - "5432:5432"
+      - "5433:5432"  # Changed to avoid conflict with other PostgreSQL
     volumes:
       - timescale_data:/var/lib/postgresql/data
       - ./audit/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
@@ -59,7 +59,7 @@ services:
     container_name: ragf-redis
     command: redis-server --requirepass redis_secure_2026
     ports:
-      - "6379:6379"
+      - "6380:6379"  # Changed to avoid conflict with other Redis
     volumes:
       - redis_data:/data
     healthcheck:
@@ -104,12 +104,12 @@ services:
       - LOG_LEVEL=INFO
       - ENVIRONMENT=mva
     ports:
-      - "8000:8000"
+      - "8001:8000"  # Changed to avoid conflict
     volumes:
       - ./gateway:/app/gateway:ro
       - ./shared:/app/shared:ro
       - ./audit:/app/audit:ro
-      - ./tests:/app/tests:ro
+      - ./tests:/app/tests
     depends_on:
       neo4j:
         condition: service_healthy

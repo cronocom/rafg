@@ -46,12 +46,6 @@ COPY tests/ /app/tests/
 # Crear directorio para logs
 RUN mkdir -p /app/logs
 
-# Usuario no-root para seguridad
-RUN useradd -m -u 1000 ragf && \
-    chown -R ragf:ragf /app
-
-USER ragf
-
 # Health check endpoint
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
@@ -60,6 +54,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
 EXPOSE 8000
 
 # Comando de inicio con Uvicorn (ASGI server)
+# NO cambiar de usuario para evitar problemas de permisos
 CMD ["uvicorn", "gateway.main:app", \
      "--host", "0.0.0.0", \
      "--port", "8000", \

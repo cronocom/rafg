@@ -73,8 +73,8 @@ restart: down up ## Reiniciar todos los servicios
 
 health: ## Verificar salud de todos los endpoints
 	@echo "🏥 Verificando salud del sistema..."
-	@curl -s http://localhost:8000/health | python3 -m json.tool || echo "❌ API no responde"
-	@curl -s http://localhost:7474 > /dev/null && echo "✅ Neo4j UI: http://localhost:7474" || echo "❌ Neo4j no responde"
+	@curl -s http://localhost:8001/health | python3 -m json.tool || echo "❌ API no responde"
+	@curl -s http://localhost:7475 > /dev/null && echo "✅ Neo4j UI: http://localhost:7475" || echo "❌ Neo4j no responde"
 
 watch: ## Ver métricas en tiempo real
 	watch -n 2 'docker stats --no-stream'
