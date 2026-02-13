@@ -65,3 +65,8 @@ logs/
 # Temporary
 tmp/
 temp/
+
+echo "" >> .gitignore
+echo "# Benchmark artifacts" >> .gitignore
+echo "latency_comparison.csv" >> .gitignore
+echo "figures/" >> .gitignore
