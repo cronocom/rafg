@@ -48,6 +48,54 @@ class DecisionEngine:
         self.neo4j = neo4j_client
         self.validation_timeout_ms = validation_timeout_ms
         self.validator_timeout_ms = 150.0  # Presupuesto para validators
+        self._health_check_cache = {"healthy": True, "last_check": 0.0}
+    
+    async def _check_validator_health(self) -> bool:
+        """
+        Health check del Validation Gate (v2.0 feature).
+        
+        Verifica:
+        - Neo4j responde a pings
+        - Cache no se usa si health check falló hace <30s
+        
+        Returns:
+            True si todos los validadores están operacionales
+        """
+        current_time = time.time()
+        
+        # Use cache if recent check passed
+        if (self._health_check_cache["healthy"] and 
+            current_time - self._health_check_cache["last_check"] < 30):
+            return True
+        
+        try:
+            # Ping Neo4j using the actual driver API
+            if not self.neo4j.driver:
+                raise Exception("Neo4j driver not connected")
+            
+            async with self.neo4j.driver.session() as session:
+                await asyncio.wait_for(
+                    session.run("RETURN 1 AS ping"),
+                    timeout=0.5  # 500ms timeout for health check
+                )
+            
+            self._health_check_cache = {
+                "healthy": True,
+                "last_check": current_time
+            }
+            return True
+        
+        except Exception as e:
+            logger.warning(
+                "health_check_failed",
+                error=str(e),
+                component="neo4j"
+            )
+            self._health_check_cache = {
+                "healthy": False,
+                "last_check": current_time
+            }
+            return False
     
     async def evaluate(
         self,
@@ -59,6 +107,8 @@ class DecisionEngine:
         """
         Evalúa una acción a través del Validation Gate completo.
         
+        v2.0: Includes health check before validation
+        
         Args:
             action: La acción a validar
             amm_level: Nivel AMM del agente
@@ -66,8 +116,39 @@ class DecisionEngine:
             agent_id: Identificador del agente (opcional)
         
         Returns:
-            Verdict con decisión final
+            Verdict con decisión final (includes HMAC signature)
         """
+        start_time = time.perf_counter()
+        
+        # ═══════════════════════════════════════════════════════
+        # v2.0: Health Check (Fail-Closed Pattern)
+        # ═══════════════════════════════════════════════════════
+        
+        if not await self._check_validator_health():
+            logger.error(
+                "validation_denied_unhealthy",
+                trace_id=trace_id,
+                reason="Validators unhealthy"
+            )
+            
+            return Verdict(
+                trace_id=trace_id,
+                decision="DENY",
+                reason="VALIDATOR_UNHEALTHY | Neo4j connection failed",
+                amm_level=amm_level,
+                semantic_verdict=SemanticVerdict(
+                    decision="DENY",
+                    reason="Health check failed",
+                    ontology_match=False,
+                    amm_authorized=False,
+                    coverage=0.0
+                ),
+                validator_results=[],
+                total_latency_ms=(time.perf_counter() - start_time) * 1000,
+                action=action,
+                agent_id=agent_id
+            )
+        
         start_time = time.perf_counter()
         
         # ═══════════════════════════════════════════════════════
@@ -229,13 +310,17 @@ class DecisionEngine:
             agent_id=agent_id
         )
         
+        # v2.0: Generate HMAC signature for non-repudiation
+        verdict.signature = verdict.compute_signature()
+        
         logger.info(
             "validation_complete",
             trace_id=trace_id,
             decision=final_decision,
             latency_ms=latency,
             validator_count=len(processed_results),
-            is_certifiable=verdict.is_certifiable
+            is_certifiable=verdict.is_certifiable,
+            signature=verdict.signature[:16] + "..."  # Log first 16 chars
         )
         
         return verdict

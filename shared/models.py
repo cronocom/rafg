@@ -14,6 +14,9 @@ from enum import IntEnum
 from typing import Literal, Optional, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
+import hmac
+import hashlib
+import json
 
 
 class AMMLevel(IntEnum):
@@ -99,6 +102,10 @@ class Verdict(BaseModel):
     """
     Veredicto final del Validation Gate.
     Este es el objeto que se audita en TimescaleDB.
+    
+    v2.0 Features:
+    - HMAC-SHA256 signature for non-repudiation
+    - Semantic coverage metric (0-1)
     """
     trace_id: str = Field(..., description="ID único de la transacción")
     decision: Literal["ALLOW", "DENY", "ESCALATE"]
@@ -117,6 +124,12 @@ class Verdict(BaseModel):
     action: ActionPrimitive
     agent_id: Optional[str] = None
     
+    # v2.0: Cryptographic signature
+    signature: str = Field(
+        default="",
+        description="HMAC-SHA256 signature for non-repudiation"
+    )
+    
     @property
     def is_certifiable(self) -> bool:
         """
@@ -132,6 +145,53 @@ class Verdict(BaseModel):
             and all(v.decision == "PASS" for v in self.validator_results)
             and self.total_latency_ms <= 200
         )
+    
+    def compute_signature(self, secret_key: str = "RAGF_V2_SECRET") -> str:
+        """
+        Genera firma HMAC-SHA256 del veredicto (v2.0 feature).
+        
+        Design Rationale:
+            La firma permite verificar que el veredicto no ha sido
+            manipulado post-emisión (non-repudiation).
+        
+        Production Note:
+            El secret_key debe venir de KMS (AWS Secrets Manager)
+            y rotar cada 90 días.
+        
+        Returns:
+            Hex digest de 64 caracteres
+        """
+        payload = json.dumps({
+            "trace_id": self.trace_id,
+            "decision": self.decision,
+            "reason": self.reason,
+            "amm_level": int(self.amm_level),
+            "timestamp": self.timestamp.isoformat(),
+            "semantic_coverage": self.semantic_verdict.coverage
+        }, sort_keys=True)
+        
+        return hmac.new(
+            secret_key.encode(),
+            payload.encode(),
+            hashlib.sha256
+        ).hexdigest()
+    
+    def verify_signature(self, secret_key: str = "RAGF_V2_SECRET") -> bool:
+        """
+        Verifica la integridad del veredicto.
+        
+        Returns:
+            True si la firma es válida, False si fue manipulada
+        """
+        if not self.signature:
+            return False
+        expected = self.compute_signature(secret_key)
+        return hmac.compare_digest(self.signature, expected)
+    
+    @property
+    def semantic_coverage(self) -> float:
+        """Alias para acceso rápido a cobertura semántica"""
+        return self.semantic_verdict.coverage
 
 
 class ActionRequest(BaseModel):
