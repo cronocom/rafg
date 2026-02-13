@@ -1,0 +1,12 @@
+{
+  "scenario_001": "ALLOW",
+  "scenario_002": "DENY",
+  "scenario_003": "DENY",
+  "scenario_004": "ALLOW",
+  "scenario_005": "DENY",
+  "scenario_006": "ALLOW",
+  "scenario_007": "DENY",
+  "scenario_008": "DENY",
+  "scenario_009": "DENY",
+  "scenario_010": "ALLOW"
+}
