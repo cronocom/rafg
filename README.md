@@ -2,6 +2,9 @@
 
 # RAGF - Reflexio Agentic Governance Framework
 
+# [![Latest Release](https://img.shields.io/github/v/release/cronocom/rafg)](https://github.com/cronocom/rafg/releases/latest)
+
+
 [![Paper](https://img.shields.io/badge/paper-ACM%20AI%20Systems-orange)](RAGF_v2_0.pdf)
 [![Tests](https://img.shields.io/badge/tests-7%2F7%20passing-success)](tests/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
