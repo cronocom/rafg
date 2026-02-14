@@ -12,6 +12,8 @@ Produce:
 - Verdict final (ALLOW/DENY/ESCALATE)
 """
 
+from __future__ import annotations
+
 import asyncio
 import time
 import structlog

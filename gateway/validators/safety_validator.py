@@ -8,6 +8,8 @@ Implementaciones concretas de validadores para aviación.
 Cada uno verifica una regulación FAA específica.
 """
 
+from __future__ import annotations
+
 import structlog
 from gateway.validators.base_validator import BaseValidator
 from shared.models import ActionPrimitive

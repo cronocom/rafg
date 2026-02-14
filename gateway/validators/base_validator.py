@@ -7,6 +7,8 @@ Capa 3: The Validation Gate (Abstract)
 Define la interfaz que deben implementar todos los validadores.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 import time
 from shared.models import ActionPrimitive, ValidatorResult
