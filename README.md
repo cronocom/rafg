@@ -1,5 +1,19 @@
 # 🛡️ RAGF - Reflexio Agentic Governance Framework
 
+# RAGF - Reflexio Agentic Governance Framework
+
+[![Paper](https://img.shields.io/badge/paper-ACM%20AI%20Systems-orange)](RAGF_v2_0.pdf)
+[![Tests](https://img.shields.io/badge/tests-7%2F7%20passing-success)](tests/)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+> **RAGF: Bridging Probabilistic AI Reasoning and Deterministic Execution in Regulated Systems**  
+> *Yamil Rodríguez Montaña* | [📄 Read Paper](RAGF_v2_0.pdf) | ACM Member 7748927
+
+Production-ready governance framework for deploying LLM-based agentic AI 
+in safety-critical and regulated industries.
+
+---
+
 > **From Probabilistic Context to Governed Meaning**
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
