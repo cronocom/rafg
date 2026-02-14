@@ -107,7 +107,11 @@ class DecisionEngine:
         """
         Evalúa una acción a través del Validation Gate completo.
         
-        v2.0: Includes health check before validation
+        v2.0 Features:
+        - Health check before validation
+        - Timeout and error handling on all operations
+        - HMAC signature generation
+        - Ultimate catch-all fail-closed wrapper
         
         Args:
             action: La acción a validar
@@ -119,6 +123,52 @@ class DecisionEngine:
             Verdict con decisión final (includes HMAC signature)
         """
         start_time = time.perf_counter()
+        
+        # Ultimate fail-safe: Catch ANY unexpected exception
+        try:
+            return await self._evaluate_internal(
+                action, amm_level, trace_id, agent_id, start_time
+            )
+        except Exception as e:
+            # CRITICAL: Unexpected exception in Validation Gate - fail-closed
+            logger.critical(
+                "gate_internal_error",
+                trace_id=trace_id,
+                error=str(e),
+                error_type=type(e).__name__,
+                verb=action.verb if action else "unknown"
+            )
+            
+            return Verdict(
+                trace_id=trace_id,
+                decision="DENY",
+                reason=f"GATE_INTERNAL_ERROR | Unexpected exception: {str(e)}",
+                amm_level=amm_level,
+                semantic_verdict=SemanticVerdict(
+                    decision="DENY",
+                    reason="Validation Gate internal error - fail-closed for safety",
+                    ontology_match=False,
+                    amm_authorized=False,
+                    coverage=0.0
+                ),
+                validator_results=[],
+                total_latency_ms=(time.perf_counter() - start_time) * 1000,
+                action=action,
+                agent_id=agent_id,
+                signature=""
+            )
+    
+    async def _evaluate_internal(
+        self,
+        action: ActionPrimitive,
+        amm_level: AMMLevel,
+        trace_id: str,
+        agent_id: str | None,
+        start_time: float
+    ) -> Verdict:
+        """
+        Internal evaluation logic (wrapped by evaluate() for fail-closed safety).
+        """
         
         # ═══════════════════════════════════════════════════════
         # v2.0: Health Check (Fail-Closed Pattern)
@@ -162,9 +212,63 @@ class DecisionEngine:
             amm_level=int(amm_level)
         )
         
-        semantic_verdict = await self.neo4j.validate_semantic_authority(
-            action, amm_level
-        )
+        # Semantic validation with timeout and error handling (fail-closed)
+        try:
+            semantic_verdict = await asyncio.wait_for(
+                self.neo4j.validate_semantic_authority(action, amm_level),
+                timeout=0.5  # 500ms timeout for semantic validation
+            )
+        except asyncio.TimeoutError:
+            logger.error(
+                "semantic_validation_timeout",
+                trace_id=trace_id,
+                timeout_ms=500
+            )
+            
+            return Verdict(
+                trace_id=trace_id,
+                decision="DENY",
+                reason="SEMANTIC_VALIDATION_TIMEOUT | Neo4j query exceeded 500ms",
+                amm_level=amm_level,
+                semantic_verdict=SemanticVerdict(
+                    decision="DENY",
+                    reason="Semantic validation timeout",
+                    ontology_match=False,
+                    amm_authorized=False,
+                    coverage=0.0
+                ),
+                validator_results=[],
+                total_latency_ms=(time.perf_counter() - start_time) * 1000,
+                action=action,
+                agent_id=agent_id,
+                signature=""
+            )
+        except Exception as e:
+            logger.error(
+                "semantic_validation_error",
+                trace_id=trace_id,
+                error=str(e),
+                error_type=type(e).__name__
+            )
+            
+            return Verdict(
+                trace_id=trace_id,
+                decision="DENY",
+                reason=f"SEMANTIC_VALIDATION_ERROR | {str(e)}",
+                amm_level=amm_level,
+                semantic_verdict=SemanticVerdict(
+                    decision="DENY",
+                    reason=f"Semantic validation failed: {str(e)}",
+                    ontology_match=False,
+                    amm_authorized=False,
+                    coverage=0.0
+                ),
+                validator_results=[],
+                total_latency_ms=(time.perf_counter() - start_time) * 1000,
+                action=action,
+                agent_id=agent_id,
+                signature=""
+            )
         
         # Fast rejection: si semántica falla, no ejecutar validadores
         if semantic_verdict.decision == "DENY":
@@ -310,20 +414,50 @@ class DecisionEngine:
             agent_id=agent_id
         )
         
-        # v2.0: Generate HMAC signature for non-repudiation
-        verdict.signature = verdict.compute_signature()
-        
-        logger.info(
-            "validation_complete",
-            trace_id=trace_id,
-            decision=final_decision,
-            latency_ms=latency,
-            validator_count=len(processed_results),
-            is_certifiable=verdict.is_certifiable,
-            signature=verdict.signature[:16] + "..."  # Log first 16 chars
-        )
-        
-        return verdict
+        # v2.0: Generate HMAC signature for non-repudiation (fail-closed on error)
+        try:
+            verdict.signature = verdict.compute_signature()
+            
+            logger.info(
+                "validation_complete",
+                trace_id=trace_id,
+                decision=final_decision,
+                latency_ms=latency,
+                validator_count=len(processed_results),
+                is_certifiable=verdict.is_certifiable,
+                signature=verdict.signature[:16] + "..."  # Log first 16 chars
+            )
+            
+            return verdict
+            
+        except Exception as e:
+            # CRITICAL: Signature generation failed - fail-closed
+            logger.critical(
+                "signature_generation_failed",
+                trace_id=trace_id,
+                error=str(e),
+                error_type=type(e).__name__
+            )
+            
+            # Return DENY verdict - cannot guarantee integrity without signature
+            return Verdict(
+                trace_id=trace_id,
+                decision="DENY",
+                reason=f"SIGNATURE_GENERATION_FAILED | {str(e)}",
+                amm_level=amm_level,
+                semantic_verdict=SemanticVerdict(
+                    decision="DENY",
+                    reason="Signature generation failed - system integrity compromised",
+                    ontology_match=False,
+                    amm_authorized=False,
+                    coverage=0.0
+                ),
+                validator_results=[],
+                total_latency_ms=(time.perf_counter() - start_time) * 1000,
+                action=action,
+                agent_id=agent_id,
+                signature=""  # No signature on error
+            )
     
     def _aggregate_decisions(
         self,

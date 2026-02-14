@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field, field_validator
 import hmac
 import hashlib
 import json
+import os
 
 
 class AMMLevel(IntEnum):
@@ -146,7 +147,7 @@ class Verdict(BaseModel):
             and self.total_latency_ms <= 200
         )
     
-    def compute_signature(self, secret_key: str = "RAGF_V2_SECRET") -> str:
+    def compute_signature(self) -> str:
         """
         Genera firma HMAC-SHA256 del veredicto (v2.0 feature).
         
@@ -154,13 +155,24 @@ class Verdict(BaseModel):
             La firma permite verificar que el veredicto no ha sido
             manipulado post-emisión (non-repudiation).
         
-        Production Note:
-            El secret_key debe venir de KMS (AWS Secrets Manager)
-            y rotar cada 90 días.
+        Security Model (v2.0):
+            - Secret key stored in RAGF_SIGNATURE_SECRET environment variable
+            - Production: Migrate to KMS (AWS Secrets Manager, HashiCorp Vault)
+            - Key rotation: 90-day policy recommended (future work)
         
         Returns:
             Hex digest de 64 caracteres
+            
+        Raises:
+            ValueError: If RAGF_SIGNATURE_SECRET is not configured
         """
+        secret_key = os.getenv("RAGF_SIGNATURE_SECRET")
+        if not secret_key:
+            raise ValueError(
+                "RAGF_SIGNATURE_SECRET environment variable is required. "
+                "Generate with: openssl rand -hex 32"
+            )
+        
         payload = json.dumps({
             "trace_id": self.trace_id,
             "decision": self.decision,
@@ -176,16 +188,19 @@ class Verdict(BaseModel):
             hashlib.sha256
         ).hexdigest()
     
-    def verify_signature(self, secret_key: str = "RAGF_V2_SECRET") -> bool:
+    def verify_signature(self) -> bool:
         """
         Verifica la integridad del veredicto.
         
         Returns:
             True si la firma es válida, False si fue manipulada
+            
+        Raises:
+            ValueError: If RAGF_SIGNATURE_SECRET is not configured
         """
         if not self.signature:
             return False
-        expected = self.compute_signature(secret_key)
+        expected = self.compute_signature()
         return hmac.compare_digest(self.signature, expected)
     
     @property
