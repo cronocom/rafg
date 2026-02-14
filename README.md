@@ -256,7 +256,7 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 
 - **GitHub**: https://github.com/cronocom/rafg
 - **ACM Paper** (in submission)
-- **Author**: Yamil Rodríguez-Montaña ([RefleXio](https://reflexio.ai))
+- **Author**: Yamil Rodríguez-Montaña ([RefleXio](https://reflexio.es))
 
 ---
 
