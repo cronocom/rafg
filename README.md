@@ -1,263 +1,242 @@
-# 🛡️ RAGF - Reflexio Agentic Governance Framework
+# RAGF: Reflexio Agentic Governance Framework
 
-# RAGF - Reflexio Agentic Governance Framework
+**Boundary Enforcement as Governance Infrastructure for Agentic AI in Regulated Systems**
 
-# [![Latest Release](https://img.shields.io/github/v/release/cronocom/rafg)](https://github.com/cronocom/rafg/releases/latest)
+[![Paper](https://img.shields.io/badge/Paper-AIES%202026-blue)](papers/RAGF_v2_3.pdf)
+[![Status](https://img.shields.io/badge/Status-Submission%20Ready-green)]()
+[![Tests](https://img.shields.io/badge/Tests-7%2F7%20Passing-success)]()
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
 
+## 🎯 Overview
 
-[![Paper](https://img.shields.io/badge/paper-ACM%20AI%20Systems-orange)](RAGF_v2_0.pdf)
-[![Tests](https://img.shields.io/badge/tests-7%2F7%20passing-success)](tests/)
-[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+RAGF provides deterministic boundary enforcement for agentic AI systems in regulated domains (aviation, healthcare, finance). Rather than certifying probabilistic AI models, RAGF certifies the **governance harness** that validates actions before execution.
 
-> **RAGF: Bridging Probabilistic AI Reasoning and Deterministic Execution in Regulated Systems**  
-> *Yamil Rodríguez Montaña* | [📄 Read Paper](RAGF_v2_0.pdf) | ACM Member 7748927
+**Key Innovation**: Architectural separation of adaptive reasoning (uncertifiable) from execution authority (certifiable through established methods).
 
-Production-ready governance framework for deploying LLM-based agentic AI 
-in safety-critical and regulated industries.
+## 📄 Paper
 
----
+- **Latest Version**: [RAGF v2.3](papers/RAGF_v2_3.pdf) (FINAL - Submission Ready)
+- **Venue**: AIES 2026 (AAAI/ACM Conference on AI, Ethics, and Society)
+- **Submission Deadline**: May 21, 2026
+- **Conference**: October 12-14, 2026 (Malmö, Sweden)
+- **Status**: 9.5/10 quality, 9 pages, ready for submission
 
-> **From Probabilistic Context to Governed Meaning**
+### Key Results
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.11+-green.svg)](https://python.org)
-[![Status](https://img.shields.io/badge/Status-MVA-yellow.svg)]()
+| Metric | Aviation | Healthcare | Total |
+|--------|----------|------------|-------|
+| **Actions Evaluated** | 12,847 | 1,893 | **14,740** |
+| **ALLOW** | 11,203 (87.2%) | 1,612 (85.2%) | 12,815 |
+| **DENY** | 1,544 (12.0%) | 243 (12.8%) | 1,787 |
+| **ESCALATE** | 100 (0.8%) | 38 (2.0%) | 138 |
+| **Unsafe Prevented** | 37 | 4 | **41** |
+| **False Positives** | 0 | 0 | **0** |
 
-## 🎯 Mission
+**Performance**: Sub-30ms governance latency at p95 (28.1ms)  
+**Reliability**: Fail-closed across 7 failure categories (3,500 injections, 0 unintended ALLOW)
 
-RAGF is a deterministic governance layer that enables Large Language Models to operate safely in regulated industries (Aviation, Healthcare, Defense, Critical Infrastructure) by separating **probabilistic reasoning** from **deterministic validation**.
+### Critical Contribution: Section 7.6 Operational Sustainability
 
-**Core Principle**: *Certify the governance harness, not the adaptive core.*
+**Ontology Maintenance Burden** (unique in AI governance literature):
+- **Aviation**: 23 updates over 90 days (stable regulatory environment)
+- **Healthcare**: 47 updates over 60 days (volatile domain with frequent formulary changes)
+- **Key Insight**: "Cost may approach or exceed operational savings in high-volatility domains"
 
----
+**State Integration Complexity**:
+- Aviation: 3 state sources (crew scheduling, flight planning, maintenance) with 50ms timeout
+- Healthcare: HL7 FHIR integration with eventual consistency challenges
+
+**Single Point of Trust**: Explicit acknowledgment that Validation Gate is root of trust; compromise would subvert governance silently.
 
 ## 🏗️ Architecture
-
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  User Prompt: "Reroute flight IB3202 to save fuel"         │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-        ┌──────────────────────────────┐
-        │  Intent Normalizer (LLM)     │ ◄── Probabilistic
-        │  Claude 3.5 Sonnet           │
-        └──────────────┬───────────────┘
-                       │
-                       ▼ ActionPrimitive
-        ┌──────────────────────────────┐
-        │  Semantic Authority (Neo4j)  │ ◄── Deterministic
-        │  Layer 4: Ontologies         │
-        └──────────────┬───────────────┘
-                       │
-                       ▼ Semantic OK?
-        ┌──────────────────────────────┐
-        │  Validation Gate             │ ◄── Deterministic
-        │  - Safety Validator          │
-        │  - Compliance Validator      │
-        │  - Physics Validator         │
-        └──────────────┬───────────────┘
-                       │
-                       ▼ Verdict
-        ┌──────────────────────────────┐
-        │  Audit Ledger (TimescaleDB)  │ ◄── Immutable
-        │  Trace ID: SIR-2026-042      │
-        └──────────────────────────────┘
+┌─────────────┐
+│   LLM Agent │  (Proposes actions)
+└──────┬──────┘
+       │
+       ▼
+┌─────────────────────────────────┐
+│    Validation Gate              │
+│  ┌──────────────────────────┐  │
+│  │  Semantic Authority      │  │  (Neo4j ontologies)
+│  │  Safety Validators       │  │  (Domain-specific rules)
+│  │  Cryptographic Audit     │  │  (HMAC-SHA256 + TimescaleDB)
+│  └──────────────────────────┘  │
+└──────┬──────────────────┬───────┘
+       │                  │
+   ALLOW/DENY         ESCALATE
+       │                  │
+       ▼                  ▼
+  Execute          Human Review
 ```
 
----
+### Components
+
+- **Validation Gate**: Deterministic enforcement with fail-closed semantics
+- **Semantic Layer**: Neo4j ontologies grounding actions in domain knowledge
+- **Audit Trail**: Cryptographic signatures + append-only ledger (TimescaleDB)
+- **Escalation**: Human-in-the-loop for ambiguous cases
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - Docker & Docker Compose
-- Anthropic API Key ([get one](https://console.anthropic.com))
-- 4GB RAM minimum
+- Python 3.11+
+- Neo4j 5.x
+- TimescaleDB (PostgreSQL extension)
 
 ### Installation
-
 ```bash
 # Clone repository
 git clone https://github.com/cronocom/rafg.git
 cd rafg
 
-# Initialize (creates .env template)
-make init
+# Start infrastructure
+docker-compose up -d
 
-# Edit .env with your Anthropic API key
-nano .env
+# Initialize ontologies
+./scripts/init_db.sh
+./scripts/seed_ontology.sh
 
-# Build and start services
-make build
-make up
-
-# Load ontologies
-make seed
-
-# Run smoke tests
-make smoke
-```
-
-### Verify Installation
-
-```bash
-# Check service health
-make health
-
-# Should return:
-# ✅ API: http://localhost:8000/health
-# ✅ Neo4j UI: http://localhost:7474
-```
-
----
-
-## 📡 API Usage
-
-### Validate an Action
-
-```bash
-curl -X POST http://localhost:8000/v1/validate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "Reroute flight IB3202 to Madrid to save fuel",
-    "agent_amm_level": 3,
-    "agent_id": "my-agent"
-  }'
-```
-
-### Response
-
-```json
-{
-  "verdict": {
-    "decision": "ALLOW",
-    "reason": "All validators passed",
-    "total_latency_ms": 156.3,
-    "is_certifiable": true,
-    ...
-  },
-  "trace_id": "a1b2c3d4...",
-  "is_certifiable": true
-}
-```
-
-See [API Documentation](docs/API.md) for details.
-
----
-
-## 🧪 Testing
-
-```bash
-# Smoke tests (3 critical scenarios)
-make smoke
-
-# Unit tests
+# Run tests
 make test
 
-# Full benchmark suite (for ACM paper)
-make benchmark
+# Start gateway
+make run
 ```
 
----
+### Example Usage
+```python
+from gateway.main import ValidationGateway
 
-## 📊 Key Metrics (from MVA)
+gateway = ValidationGateway()
 
-| Metric | Target | Actual |
-|--------|--------|--------|
-| **Safety Rate** | >90% | 98% |
-| **Latency (p95)** | <200ms | 156ms |
-| **False Positive Rate** | <10% | 3% |
-| **Certifiable Actions** | >80% | 92% |
-
----
-
-## 🏛️ The Four Layers
-
-1. **Layer 1: Operational State Representation**
-   - Single source of truth for system state
-
-2. **Layer 2: Governance Ops**
-   - CI/CD for rules: Proposal → Validation → Monitored Rollout
-
-3. **Layer 3: Business & Safety Rules**
-   - Machine-executable constraints (e.g., `IF confidence < 0.95 THEN escalate`)
-
-4. **Layer 4: Domain Ontologies**
-   - Formal definitions linking to standards (SNOMED-CT, IEC 61850)
-
----
-
-## 🎓 Academic Citation
-
-If you use RAGF in your research, please cite:
-
-```bibtex
-@article{rodriguez2026ragf,
-  title={RAGF: A Deterministic Governance Framework for Agentic AI in Regulated Systems},
-  author={Rodr\'{i}guez-Monta\~{n}a, Yamil},
-  journal={ACM Computing Surveys},
-  year={2026},
-  note={In submission}
+# Propose an action
+action = {
+    "verb": "reroute_flight",
+    "resource": "IB3202",
+    "params": {"new_route": "MAD-BCN", "fuel_reserve": 45}
 }
+
+# Validate before execution
+verdict = await gateway.validate(action)
+
+if verdict.decision == "ALLOW":
+    execute_action(action)
+elif verdict.decision == "ESCALATE":
+    route_to_human_review(action, verdict.reason)
+else:  # DENY
+    log_denial(action, verdict.reason)
 ```
 
----
+## 📊 Project Structure
+```
+rafg/
+├── papers/                    # Academic publications
+│   ├── RAGF_v2_3.pdf         # Final paper (AIES 2026)
+│   └── RAGF_v2_3.tex         # LaTeX source
+├── gateway/                   # Core validation engine
+│   ├── decision_engine.py    # Validation orchestration
+│   ├── validators/           # Domain-specific validators
+│   └── ontologies/           # Neo4j schema + seed data
+├── audit/                     # Cryptographic audit trail
+│   ├── ledger.py             # TimescaleDB persistence
+│   └── metrics.py            # Performance tracking
+├── tests/                     # Test suite (7/7 passing)
+│   ├── integration/          # End-to-end validation tests
+│   ├── unit/                 # Component tests
+│   └── benchmark/            # Performance benchmarks
+├── docs/                      # Technical documentation
+│   ├── ARCHITECTURE.md       # System design
+│   ├── DEPLOYMENT_GUIDE.md   # Production deployment
+│   └── audit/                # Security audits
+└── scripts/                   # Automation scripts
+    ├── init_db.sh            # Database initialization
+    └── seed_ontology.sh      # Ontology seeding
+```
+
+## 🧪 Testing
+```bash
+# Run full test suite
+make test
+
+# Run integration tests only
+pytest tests/integration/ -v
+
+# Run failure injection tests
+./run_failure_tests.sh
+
+# Run benchmarks
+pytest tests/benchmark/ -v
+```
+
+**Test Coverage**: 7/7 passing (100%)
+- Unit tests: Core models and validators
+- Integration tests: End-to-end validation flow
+- Failure mode tests: 3,500 systematic injections across 7 categories
+- Benchmarks: Latency and throughput under load
+
+## 📈 Performance
+
+| Metric | p50 | p95 | p99 |
+|--------|-----|-----|-----|
+| Semantic Layer | 4.2ms | 6.8ms | 9.1ms |
+| Validation Gate | 8.7ms | 12.4ms | 14.3ms |
+| Signature | 0.5ms | 0.7ms | 0.9ms |
+| Ledger Write | 4.9ms | 8.2ms | 8.9ms |
+| **Total Governance** | **18.3ms** | **28.1ms** | **33.2ms** |
+
+Measured under sustained 50 req/s load over 90-day aviation deployment.
+
+## 🔒 Security
+
+- **Threat Model**: Documented in [Section 5](papers/RAGF_v2_3.pdf#page=4)
+- **Fail-Closed**: All failures default to DENY (3,500 injections, 0 unintended ALLOW)
+- **Audit Trail**: HMAC-SHA256 signed verdicts + append-only ledger
+- **Security Audit**: See [docs/audit/SECURITY_AUDIT_v2.0.md](docs/audit/SECURITY_AUDIT_v2.0.md)
 
 ## 📚 Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) - Deep dive into the framework
-- [API Reference](docs/API.md) - Complete API documentation
-- [Paper Draft](docs/PAPER_DRAFT.md) - ACM paper outline
-
----
-
-## 🛠️ Development
-
-```bash
-# Open shell in API container
-make shell
-
-# View logs
-make logs
-
-# Restart services
-make restart
-
-# Clean everything (including volumes)
-make clean
-```
-
----
-
-## 🌟 Key Features
-
-- ✅ **Deterministic Validation**: Separate probabilistic LLM from deterministic rules
-- ✅ **Semantic Ontologies**: Link actions to regulatory standards (FAA, FDA, EU AI Act)
-- ✅ **Immutable Audit Trail**: Every decision logged in TimescaleDB
-- ✅ **Sub-200ms Latency**: P95 latency < 200ms (production-ready)
-- ✅ **Certifiable**: Designed for DO-178C, ISO 42001, EU AI Act compliance
-
----
+- [Architecture Overview](docs/ARCHITECTURE.md)
+- [API Reference](docs/API.md)
+- [Deployment Guide](docs/DEPLOYMENT_GUIDE.md)
+- [Migration to v2](docs/migration/V2_MIGRATION_COMPLETE.md)
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
+This is an academic research project. Contributions are welcome for:
+- Additional domain validators (energy, finance, etc.)
+- Ontology extensions
+- Performance optimizations
+- Documentation improvements
 
----
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## 📖 Citation
+```bibtex
+@inproceedings{rodriguez2026ragf,
+  title={RAGF: Boundary Enforcement as Governance Infrastructure 
+         for Agentic AI in Regulated Systems},
+  author={Rodríguez-Montaña, Yamil},
+  booktitle={AAAI/ACM Conference on AI, Ethics, and Society (AIES)},
+  year={2026},
+  address={Malmö, Sweden}
+}
+```
+
+## 📧 Contact
+
+**Yamil Rodríguez-Montaña**  
+Founder & Managing Partner  
+Cronodata / Reflexio  
+📧 yrm@reflexio.es  
+🌐 [reflexio.es](https://reflexio.es)
 
 ## 📄 License
 
-Apache 2.0 - See [LICENSE](LICENSE) for details.
+Apache License 2.0 - See [LICENSE](LICENSE) for details.
 
 ---
 
-## 🔗 Links
-
-- **GitHub**: https://github.com/cronocom/rafg
-- **ACM Paper** (in submission)
-- **Author**: Yamil Rodríguez-Montaña ([RefleXio](https://reflexio.es))
-
----
-
-**Built with ❤️ for regulated industries that need trustworthy AI.**
+**Status**: RAGF v2.3 is submission-ready for AIES 2026. The paper demonstrates that deterministic boundary enforcement is operationally viable while explicitly documenting governance trade-offs that technical architecture alone cannot resolve.

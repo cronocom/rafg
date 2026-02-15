@@ -1,13 +1,3 @@
-# ═══════════════════════════════════════════════════════════
-# RAGF .gitignore
-# ═══════════════════════════════════════════════════════════
-
-# Environment
-.env
-.env.local
-*.env
-!.env.example
-
 # Python
 __pycache__/
 *.py[cod]
@@ -29,44 +19,42 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
+# LaTeX
+*.aux
 *.log
-.hypothesis/
+*.out
+*.toc
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+*.blg
+*.bbl
 
-# IDE
+# IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-.DS_Store
+
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
 
 # Docker
-*.pid
-*.seed
+.docker/
+docker-compose.override.yml
 
-# Jupyter
-.ipynb_checkpoints/
+# OS
+.DS_Store
+Thumbs.db
 
-# Logs
-logs/
-*.log
-
-# Database
-*.db
-*.sqlite
-
-# Temporary
-tmp/
-temp/
-
-echo "" >> .gitignore
-echo "# Benchmark artifacts" >> .gitignore
-echo "latency_comparison.csv" >> .gitignore
-echo "figures/" >> .gitignore
+# Temporary files
+*.tmp
+*.temp
+*_temp.*
+*_draft.*
