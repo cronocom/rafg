@@ -1,6 +1,6 @@
-% RAGF v2.0 - Complete ACM Paper
+% RAGF v2.1 - Final ACM Paper with Refinements Integrated
 % Reflexio Agentic Governance Framework
-% From Probabilistic Context to Governed Meaning
+% Hybrid Style: Empirical Validation + Production Deployment
 
 \documentclass[sigconf,screen]{acmart}
 
@@ -149,7 +149,7 @@ This paper makes the following contributions:
 
 \subsection{Paper Organization}
 
-Section 2 provides background on agentic AI and regulatory challenges. Section 3 presents the RAGF architecture. Sections 4-5 detail the Semantic Layer and Validation Gate implementations. Section 6 empirically validates the fail-closed safety property through comprehensive testing. Section 7 evaluates production deployments. Section 8 discusses limitations and future work.
+Section 2 provides background on agentic AI and regulatory challenges. Section 3 presents the RAGF architecture. Sections 4-5 detail the Semantic Layer and Validation Gate implementations. Section 6 empirically validates the fail-closed safety property through comprehensive testing. Section 7 evaluates production deployments. Section 8 discusses threat model, limitations and future work.
 
 %==============================================================================
 % 2. BACKGROUND AND MOTIVATION
@@ -482,10 +482,10 @@ class FuelReserveValidator(BaseValidator):
     async def validate(self, action):
         if action.verb != "reroute_flight":
             return PASS
-        
+
         route = action.parameters["new_route"]
         fuel_reserve = calculate_reserve(route)
-        
+
         if fuel_reserve < MINIMUM_RESERVE:
             return FAIL(
                 reason="Fuel reserve below FAA minimum",
@@ -530,10 +530,10 @@ def compute_signature(self) -> str:
         "timestamp": self.timestamp.isoformat(),
         # ... additional fields
     }, sort_keys=True)
-    
+
     return hmac.new(
-        secret_key.encode(), 
-        payload.encode(), 
+        secret_key.encode(),
+        payload.encode(),
         hashlib.sha256
     ).hexdigest()
 \end{lstlisting}
@@ -564,23 +564,52 @@ SELECT create_hypertable('verdicts', 'time');
 \textbf{Immutability Model}: Immutability is enforced at the application level through an append-only API (no UPDATE/DELETE operations permitted), rather than by the storage engine itself. TimescaleDB's time-series optimizations support efficient append-only workloads.
 
 %==============================================================================
-% 6. FORMAL VERIFICATION: FAIL-CLOSED PROPERTY
+% 6. EMPIRICAL VALIDATION: FAIL-CLOSED PROPERTY
 %==============================================================================
 
 \section{Empirical Validation: Fail-Closed Property}
 
 \subsection{Safety Property Specification}
 
-We empirically validate the following safety property:
+We empirically validate the following safety property through comprehensive failure injection testing:
 
-\begin{theorem}[Empirical Fail-Closed Guarantee]
-For all actions $a \in \text{ActionSpace}$ and all failure modes $f \in \text{FailureModes}$:
+\textbf{Property 6.1} (Empirical Fail-Closed Guarantee).
+\textit{Within the enumerated failure modes, the Validation Gate exhibits deterministic denial behavior:}
+
 \[
+\forall f \in \text{FailureModes}, \forall a \in \text{ActionSpace}:
 \text{evaluate}(a) \text{ under } f \implies \text{verdict.decision} = \text{DENY}
 \]
-\end{theorem}
 
-where $\text{FailureModes} = \{$Neo4j timeout, validator exception, signature error, unexpected exception$\}$.
+where $\text{FailureModes} = \{$Neo4j timeout, Neo4j exception, validator exception, signature error, unexpected error$\}$.
+
+\subsubsection{Scope of Validation}
+
+This property is validated through:
+\begin{enumerate}
+\item \textbf{Failure Injection}: Systematic injection of each failure mode in controlled environment
+\item \textbf{Integration Testing}: 7 automated tests covering all enumerated failure modes (Section 6.4)
+\item \textbf{Code Review}: Static analysis of exception handling paths (Section 6.3)
+\item \textbf{Manual Verification}: Edge cases requiring environmental manipulation (e.g., key rotation during signature generation)
+\end{enumerate}
+
+\subsubsection{Verification Methodology Limitations}
+
+\textbf{Important Distinction}: This is \textit{empirical validation}, not formal mathematical proof. The property holds for:
+\begin{itemize}
+\item Enumerated failure modes (completeness depends on failure taxonomy)
+\item Current implementation (code changes require re-validation)
+\item Tested deployment configurations (production variations may introduce new failure modes)
+\end{itemize}
+
+Formal verification via theorem provers (Coq, Isabelle/HOL) that would provide mathematical certainty across all possible program states is identified as future work. Such verification would require:
+\begin{itemize}
+\item Formal specification of Validation Gate semantics
+\item Mechanized proof of exception handling completeness
+\item Verification condition generation for validator implementations
+\end{itemize}
+
+The current approach aligns with DO-178C Level C verification objectives, which require \textit{demonstrable evidence} of correct behavior under failure conditions through testing and review, rather than mathematical proof of correctness.
 
 \subsection{Validation Methodology}
 
@@ -828,40 +857,140 @@ Creating and maintaining domain ontologies requires domain expertise:
 \item Healthcare ontology: 60 hours (physician + informatician)
 \end{itemize}
 
-\textbf{Mitigation}: Ontologies stabilize after initial creation; updates are incremental.
+However, ontologies stabilize after initial creation; updates are incremental and typically triggered by regulatory changes rather than operational needs. For organizations already maintaining regulatory compliance documentation, ontology creation can leverage existing artifacts.
 
 \subsection{Latency Budget Constraints}
 
 The 200ms validation budget may be insufficient for:
 \begin{itemize}
-\item Complex multi-step reasoning chains
-\item Real-time control systems (\textless10ms requirements)
+\item Complex multi-step reasoning chains requiring iterative LLM calls
+\item Real-time control systems with <10ms latency requirements
+\item Actions requiring synchronous external API calls during validation
 \end{itemize}
 
-\textbf{Future Work}: Investigate caching strategies and pre-validation for common patterns.
+Current p95 latency (28.1ms) leaves 171.9ms for LLM reasoning within the 200ms target. Organizations requiring sub-100ms total response time may need to optimize validator implementations or employ caching strategies for common action patterns.
 
 \subsection{Semantic Coverage Edge Cases}
 
-Coverage $< 1.0$ triggers ESCALATE, but determining \textit{acceptable coverage thresholds} is domain-dependent. Current threshold (1.0 = perfect coverage) may be overly conservative.
+Coverage < 1.0 triggers ESCALATE, but determining acceptable coverage thresholds is domain-dependent. The current threshold (1.0 = perfect coverage) ensures conservative safety but may generate excessive escalations in domains with rapidly evolving vocabularies.
 
-\textbf{Future Work}: Empirical studies to calibrate coverage thresholds per domain.
+\textbf{Future Work}: Empirical studies to calibrate coverage thresholds per domain based on historical false positive/negative rates.
+
+\subsection{Concurrency and Scale}
+
+Current performance benchmarks reflect single-region deployment serving moderate operational load:
+\begin{itemize}
+\item Aviation: 45 flights/day (regional carrier scale)
+\item Healthcare: 250-bed facility
+\item Total dataset: 12,847 actions over 90 days
+\end{itemize}
+
+High-concurrency scenarios and enterprise-scale deployments require additional validation:
+
+\begin{table}[h]
+\centering
+\caption{Scale Testing Gaps}
+\label{tab:scale-gaps}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Component} & \textbf{Untested Scenario} \\
+\midrule
+Neo4j & Read contention at 1000+ req/s \\
+Validators & Horizontal scaling beyond 6 parallel \\
+TimescaleDB & Write throughput > 500 verdicts/s \\
+Multi-region & Cross-region latency budgets \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Our dataset represents realistic operational load for mid-sized organizations. National carriers (300+ flights/day) or hospital networks (10,000+ beds) would require load testing and potentially distributed validator architectures beyond current implementation scope.
 
 \subsection{Multi-Agent Orchestration (AMM Level 4+)}
 
-RAGF currently validates single-agent actions. Extending to multi-agent scenarios (Level 4) requires:
+RAGF currently validates single-agent actions. Extending to multi-agent scenarios (AMM Level 4-5) introduces additional complexity:
 \begin{itemize}
-\item Cross-agent semantic dependencies
-\item Distributed validation consensus
-\item Temporal action sequencing
+\item \textbf{Cross-agent dependencies}: Action A from Agent 1 may invalidate Action B from Agent 2
+\item \textbf{Temporal sequencing}: Validators must reason about action ordering
+\item \textbf{Distributed consensus}: Multiple validation gates must agree on global state
 \end{itemize}
 
-\textbf{Future Work}: Distributed validation protocols for agent swarms.
+\textbf{Future Work}: Distributed validation protocols with causal consistency guarantees for agent swarms.
 
-\subsection{Adversarial Robustness}
+\subsection{Regulatory Certification Scope}
 
-While RAGF prevents \textit{accidental} violations, adversarial prompt injection targeting the ontology query mechanism remains a theoretical threat.
+\textbf{Critical Clarification}: RAGF provides \textit{technical mechanisms} that contribute to regulatory objectives but does not constitute a complete certification package.
 
-\textbf{Mitigation}: Input sanitization on ActionPrimitive fields; separate LLM for ontology queries.
+Full DO-178C Level C certification requires organizational artifacts beyond RAGF's scope:
+\begin{itemize}
+\item Requirements traceability matrices (§6.3)
+\item Configuration management procedures (§7)
+\item Tool qualification documentation (§12)
+\item Process assurance evidence (§8)
+\item Structural coverage analysis (§6.4)
+\end{itemize}
+
+Similarly, ISO 42001 compliance requires organizational governance processes (policy development, risk assessment, incident response) that complement RAGF's technical enforcement mechanisms.
+
+\textbf{RAGF's Role}: Provides the deterministic validation layer and audit trail infrastructure that \textit{enables} certification efforts, reducing the scope of what must be formally verified (validators only, not the entire LLM).
+
+\subsection{Threat Model and Security Assumptions}
+
+RAGF operates under a defined threat model that acknowledges both its security capabilities and explicit limitations.
+
+\subsubsection{In-Scope Threats}
+
+RAGF is designed to mitigate the following threat categories:
+
+\begin{itemize}
+\item \textbf{LLM Hallucination}: The system prevents execution of semantically invalid, malformed, or out-of-vocabulary actions generated by the LLM. This includes verbs not present in the domain ontology and actions with incomplete parameter sets.
+
+\item \textbf{Component Failures}: The fail-closed architecture ensures safe behavior under database outages (Neo4j, TimescaleDB), validator crashes, network timeouts, and partial system failures. All failure modes trigger DENY verdicts.
+
+\item \textbf{Operational Errors}: Incomplete ontologies (semantic coverage < 1.0), misconfigured validation rules, and inadvertent policy conflicts are detected and escalated to human review rather than allowing potentially unsafe execution.
+
+\item \textbf{Accidental Regulatory Violations}: Domain-specific validators prevent unintentional breaches of safety regulations (e.g., FAA crew rest requirements, drug interaction contraindications) that may not be explicitly encoded in LLM training data.
+\end{itemize}
+
+\subsubsection{Out-of-Scope Threats (Explicit Non-Goals)}
+
+The current RAGF implementation does \textit{not} address the following threat categories, which represent areas for future work:
+
+\begin{itemize}
+\item \textbf{Adversarial Prompt Injection}: Sophisticated attacks specifically designed to manipulate ontology query construction or exploit semantic validation logic are not within scope. While input sanitization is applied to \texttt{ActionPrimitive} fields, targeted adversarial exploration of the ontology graph structure could potentially identify edge cases.
+
+\item \textbf{Insider Threats}: RAGF assumes ontology maintainers and validator developers are trustworthy and follow established review processes. Malicious modifications to ontologies or validator logic by authorized personnel are not currently detected.
+
+\item \textbf{Cryptographic Key Compromise}: While HMAC-SHA256 signatures provide audit trail integrity, compromise of the signing secret would enable signature forgery. This is mitigated through external Key Management Systems (KMS) and 90-day rotation policies, but Byzantine-fault-tolerant consensus mechanisms are not implemented.
+
+\item \textbf{Data Poisoning}: Systematic corruption of Neo4j ontology data or TimescaleDB audit logs through compromised infrastructure is assumed to be prevented by standard database hardening practices, not by RAGF-specific mechanisms.
+\end{itemize}
+
+\subsubsection{Trust Assumptions}
+
+RAGF's security model relies on the following trust assumptions:
+
+\begin{enumerate}
+\item \textbf{Ontology Integrity}: Domain ontologies are maintained by trusted subject matter experts following version-controlled change management processes with peer review.
+
+\item \textbf{Validator Correctness}: Safety validators undergo code review, unit testing, and integration testing before deployment. Validator logic is assumed to correctly implement domain regulations.
+
+\item \textbf{Infrastructure Hardening}: Neo4j, TimescaleDB, and host systems follow industry-standard security practices (network segmentation, access control, encryption at rest/in transit).
+
+\item \textbf{Key Management}: Cryptographic secrets are managed via KMS with automated rotation and are never hardcoded or stored in version control.
+
+\item \textbf{LLM Adversarial Posture}: The framework treats the LLM as potentially adversarial (worst-case assumption), which drives the fail-closed design. This assumption enables deployment even when LLM behavior cannot be formally verified.
+\end{enumerate}
+
+\subsubsection{Future Security Extensions}
+
+Extending RAGF to adversarial settings requires:
+\begin{itemize}
+\item Input sanitization layers preventing ontology query manipulation
+\item Byzantine-fault-tolerant validator consensus for untrusted validator environments
+\item Formal verification of validator implementations (e.g., via TLA+ or Coq)
+\item Anomaly detection on ontology query patterns
+\item Multi-signature schemes for high-stakes actions
+\end{itemize}
 
 %==============================================================================
 % 9. RELATED WORK
