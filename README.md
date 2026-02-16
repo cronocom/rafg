@@ -240,3 +240,15 @@ Apache License 2.0 - See [LICENSE](LICENSE) for details.
 ---
 
 **Status**: RAGF v2.3 is submission-ready for AIES 2026. The paper demonstrates that deterministic boundary enforcement is operationally viable while explicitly documenting governance trade-offs that technical architecture alone cannot resolve.
+
+## 📄 Publication Status
+
+**Academic Paper**: RAGF v2.3 submitted to AIES 2026
+- Conference: AAAI/ACM Conference on AI, Ethics, and Society
+- Paper ID: #3
+- Submission Date: February 16, 2026
+- Status: Under Review
+- Expected Notification: July 2026
+- Conference Dates: October 12-14, 2026 (Malmö, Sweden)
+
+Paper: [RAGF_v2_3.pdf](papers/RAGF_v2_3.pdf)
