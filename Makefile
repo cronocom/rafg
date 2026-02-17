@@ -78,3 +78,32 @@ health: ## Verificar salud de todos los endpoints
 
 watch: ## Ver métricas en tiempo real
 	watch -n 2 'docker stats --no-stream'
+
+.PHONY: help analyze-escalations install test
+
+PYTHON := python3
+VENV := venv
+
+help:
+	@echo "RAGF Development Commands"
+	@echo "========================="
+	@echo "make install            - Install dependencies"
+	@echo "make analyze-escalations - Generate escalation metrics"
+	@echo "make test              - Run test suite"
+	@echo "make clean             - Clean generated files"
+
+install:
+	$(PYTHON) -m pip install --upgrade pip
+	$(PYTHON) -m pip install -r requirements.txt
+
+analyze-escalations:
+	@echo "Generating escalation metrics for AIES camera-ready..."
+	$(PYTHON) scripts/analyze_escalations.py
+
+test:
+	$(PYTHON) -m pytest tests/ -v
+
+clean:
+	rm -rf results/escalation_analysis/*
+	find . -type d -name "__pycache__" -exec rm -rf {} +
+	find . -type f -name "*.pyc" -delete
