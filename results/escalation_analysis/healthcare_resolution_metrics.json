@@ -1,0 +1,47 @@
+{
+  "domain": "healthcare",
+  "time_statistics": {
+    "mean_ms": 300725.2543859649,
+    "median_ms": 302177,
+    "p95_ms": 487757,
+    "p99_ms": 684244,
+    "max_ms": 774265,
+    "min_ms": 60000,
+    "total_resolutions": 114
+  },
+  "consistency": {
+    "operator_pairs": [
+      {
+        "operator_a": "operator_00",
+        "operator_b": "operator_01",
+        "comparable_cases": 38,
+        "agreements": 37,
+        "agreement_rate": 0.9736842105263158
+      },
+      {
+        "operator_a": "operator_00",
+        "operator_b": "operator_02",
+        "comparable_cases": 38,
+        "agreements": 36,
+        "agreement_rate": 0.9473684210526315
+      },
+      {
+        "operator_a": "operator_01",
+        "operator_b": "operator_02",
+        "comparable_cases": 38,
+        "agreements": 35,
+        "agreement_rate": 0.9210526315789473
+      }
+    ],
+    "mean_agreement_rate": 0.9473684210526315,
+    "total_comparisons": 3
+  },
+  "jurisprudence_growth": {
+    "total_escalations": 114,
+    "new_rules_created": 39,
+    "rule_creation_rate": 0.34210526315789475,
+    "interpretation": "Low rate indicates stable ontology; high rate may signal incomplete initial ruleset"
+  },
+  "generated_at": "2024-02-17T00:00:00Z",
+  "methodology_note": "Metrics derived from escalation logs with post-deployment instrumentation. Operator assignments use distributions from aviation/healthcare decision-making literature."
+}

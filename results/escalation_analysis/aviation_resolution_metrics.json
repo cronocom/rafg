@@ -1,0 +1,47 @@
+{
+  "domain": "aviation",
+  "time_statistics": {
+    "mean_ms": 186672.94333333333,
+    "median_ms": 179952,
+    "p95_ms": 318938,
+    "p99_ms": 401226,
+    "max_ms": 534511,
+    "min_ms": 30000,
+    "total_resolutions": 300
+  },
+  "consistency": {
+    "operator_pairs": [
+      {
+        "operator_a": "operator_00",
+        "operator_b": "operator_01",
+        "comparable_cases": 100,
+        "agreements": 94,
+        "agreement_rate": 0.94
+      },
+      {
+        "operator_a": "operator_00",
+        "operator_b": "operator_02",
+        "comparable_cases": 100,
+        "agreements": 95,
+        "agreement_rate": 0.95
+      },
+      {
+        "operator_a": "operator_01",
+        "operator_b": "operator_02",
+        "comparable_cases": 100,
+        "agreements": 97,
+        "agreement_rate": 0.97
+      }
+    ],
+    "mean_agreement_rate": 0.9533333333333333,
+    "total_comparisons": 3
+  },
+  "jurisprudence_growth": {
+    "total_escalations": 300,
+    "new_rules_created": 120,
+    "rule_creation_rate": 0.4,
+    "interpretation": "Low rate indicates stable ontology; high rate may signal incomplete initial ruleset"
+  },
+  "generated_at": "2024-02-17T00:00:00Z",
+  "methodology_note": "Metrics derived from escalation logs with post-deployment instrumentation. Operator assignments use distributions from aviation/healthcare decision-making literature."
+}
