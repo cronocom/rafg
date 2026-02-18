@@ -1,0 +1,108 @@
+{
+  "timestamp": "2026-02-18T19:51:10.072708Z",
+  "iterations": 1000,
+  "neo4j": {
+    "q1_simple": {
+      "verdict": "ALLOW",
+      "records": 1,
+      "p50": 1.063,
+      "p95": 1.412,
+      "p99": 2.158,
+      "mean": 1.157,
+      "min": 0.885,
+      "max": 26.528
+    },
+    "q2_medium": {
+      "verdict": "ALLOW",
+      "records": 1,
+      "p50": 1.208,
+      "p95": 1.793,
+      "p99": 2.263,
+      "mean": 1.265,
+      "min": 0.863,
+      "max": 2.995
+    },
+    "q3_complex": {
+      "verdict": "ALLOW",
+      "records": 1,
+      "p50": 2.113,
+      "p95": 4.75,
+      "p99": 6.723,
+      "mean": 2.275,
+      "min": 0.853,
+      "max": 13.773
+    },
+    "q4_deny": {
+      "verdict": "DENY",
+      "records": 0,
+      "p50": 1.475,
+      "p95": 3.995,
+      "p99": 6.434,
+      "mean": 1.772,
+      "min": 0.703,
+      "max": 12.521
+    },
+    "q5_hallucin": {
+      "verdict": "DENY",
+      "records": 0,
+      "p50": 1.382,
+      "p95": 4.243,
+      "p99": 9.198,
+      "mean": 1.741,
+      "min": 0.695,
+      "max": 25.887
+    }
+  },
+  "postgres": {
+    "q1_simple": {
+      "verdict": "ALLOW",
+      "records": 1,
+      "p50": 0.301,
+      "p95": 0.351,
+      "p99": 0.406,
+      "mean": 0.308,
+      "min": 0.268,
+      "max": 0.574
+    },
+    "q2_medium": {
+      "verdict": "ALLOW",
+      "records": 1,
+      "p50": 0.341,
+      "p95": 0.911,
+      "p99": 2.028,
+      "mean": 0.445,
+      "min": 0.265,
+      "max": 4.665
+    },
+    "q3_complex": {
+      "verdict": "ALLOW",
+      "records": 1,
+      "p50": 0.367,
+      "p95": 0.572,
+      "p99": 1.015,
+      "mean": 0.41,
+      "min": 0.288,
+      "max": 5.355
+    },
+    "q4_deny": {
+      "verdict": "DENY",
+      "records": 0,
+      "p50": 0.303,
+      "p95": 0.447,
+      "p99": 0.852,
+      "mean": 0.312,
+      "min": 0.163,
+      "max": 2.52
+    },
+    "q5_hallucin": {
+      "verdict": "DENY",
+      "records": 0,
+      "p50": 0.313,
+      "p95": 0.417,
+      "p99": 0.683,
+      "mean": 0.333,
+      "min": 0.272,
+      "max": 4.409
+    }
+  }
+}

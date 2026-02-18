@@ -1,0 +1,67 @@
+[
+  {
+    "name": "reject_balance_195",
+    "description": "Scale test verb: reject_balance_195",
+    "min_amm_level": 3,
+    "domain": "fintech",
+    "regulations": [
+      "SCALE-OCC-EU-0005",
+      "SCALE-FINMA-APAC-0037"
+    ],
+    "constraints": [
+      "sc37",
+      "sc45",
+      "sc9"
+    ]
+  },
+  {
+    "name": "suspend_credential_153",
+    "description": "Scale test verb: suspend_credential_153",
+    "min_amm_level": 4,
+    "domain": "capital_markets",
+    "regulations": [
+      "SCALE-OCC-LATAM-0196"
+    ],
+    "constraints": [
+      "sc18",
+      "sc49",
+      "sc24"
+    ]
+  },
+  {
+    "name": "validate_report_050",
+    "description": "Scale test verb: validate_report_050",
+    "min_amm_level": 1,
+    "domain": "crypto",
+    "regulations": [
+      "SCALE-EDPB-EU-0197"
+    ],
+    "constraints": [
+      "sc23",
+      "sc32"
+    ]
+  },
+  {
+    "name": "cancel_session_410",
+    "description": "Scale test verb: cancel_session_410",
+    "min_amm_level": 1,
+    "domain": "banking",
+    "regulations": [
+      "SCALE-MAS-EU-0026"
+    ],
+    "constraints": [
+      "sc26"
+    ]
+  },
+  {
+    "name": "suspend_exemption_499",
+    "description": "Scale test verb: suspend_exemption_499",
+    "min_amm_level": 1,
+    "domain": "banking",
+    "regulations": [
+      "SCALE-FCA-APAC-0057",
+      "SCALE-FCA-US-0132"
+    ],
+    "constraints": []
+  }
+]
