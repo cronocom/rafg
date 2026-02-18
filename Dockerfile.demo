@@ -1,0 +1,31 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install curl for healthcheck
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY services/demo-engine/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy ONLY the fintech validators directory
+# .dockerignore will prevent base_validator.py from being copied
+COPY gateway/validators/fintech/ ./gateway/validators/fintech/
+
+# Create minimal __init__ files
+RUN echo '"""RAGF Gateway Package"""' > gateway/__init__.py && \
+    echo '"""RAGF Validators Package"""' > gateway/validators/__init__.py
+
+# Copy demo application
+COPY services/demo-engine/app ./app
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Run
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

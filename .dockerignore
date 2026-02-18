@@ -1,0 +1,13 @@
+# Excluir validators que dependen de 'shared'
+gateway/validators/base_validator.py
+gateway/validators/safety_validator.py
+
+# Excluir otros archivos innecesarios
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.git
+.env
+.venv
+.idea
+*.log
