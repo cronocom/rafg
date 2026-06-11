@@ -160,8 +160,18 @@ def test_write_artifacts_signs_when_key_present(tmp_path: Path) -> None:
     assert (out_dir / "report.sig").is_file()
 
     json_bytes = (out_dir / "report.json").read_bytes()
-    expected_sig = hmac.new(b"testkey", json_bytes, hashlib.sha256).hexdigest()
+    # Re-compute the signature using the same domain-separated scheme the
+    # writer uses; raw HMAC over the JSON bytes is now NOT a valid
+    # signature, which is the entire point of A1.
+    from harness_auditor.report import HMAC_DOMAIN_TAG
+    mac = hmac.new(b"testkey", HMAC_DOMAIN_TAG, hashlib.sha256)
+    mac.update(json_bytes)
+    expected_sig = mac.hexdigest()
     assert (out_dir / "report.sig").read_text().strip() == expected_sig
+
+    # And the naive (no-tag) HMAC must NOT match: domain separation in action.
+    naive_sig = hmac.new(b"testkey", json_bytes, hashlib.sha256).hexdigest()
+    assert (out_dir / "report.sig").read_text().strip() != naive_sig
 
     # JSON round-trips and preserves status.
     payload = json.loads(json_bytes)

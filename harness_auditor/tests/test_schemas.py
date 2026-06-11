@@ -205,6 +205,17 @@ def _add_extra_verb_field(d: dict[str, Any]) -> None:
     d["verbs"][0]["weight"] = 0.5
 
 
+def _set_value_mixed_list(d: dict[str, Any]) -> None:
+    # B3 · constraint.value must be a homogeneous Neo4j-compatible array.
+    d["constraints"][0]["operator"] = "in"
+    d["constraints"][0]["value"] = [1, "two", True]
+
+
+def _set_schema_version_unsupported_major(d: dict[str, Any]) -> None:
+    # B5 · the auditor reads major 1.x only.
+    d["schema_version"] = "2.0"
+
+
 _INVALID_CASES: tuple[tuple[str, Mutation], ...] = (
     ("domain name uppercase", _set_domain_name_uppercase),
     ("domain name with hyphen", _set_domain_name_with_hyphen),
@@ -218,6 +229,8 @@ _INVALID_CASES: tuple[tuple[str, Mutation], ...] = (
     ("decision_if_violated = ALLOW (CC-09 at the schema)", _set_decision_allow),
     ("extra top-level field", _add_extra_top_level_field),
     ("extra field on a verb", _add_extra_verb_field),
+    ("value is a mixed-type list (B3)", _set_value_mixed_list),
+    ("schema_version major != 1 (B5)", _set_schema_version_unsupported_major),
 )
 
 

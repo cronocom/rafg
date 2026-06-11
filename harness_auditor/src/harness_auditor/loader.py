@@ -50,8 +50,109 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
 )
 
 
+#: Per-kind hints used by ``LoaderMismatchError`` to translate a raw count
+#: divergence into actionable guidance. Keys are stripped of the ``Prev``
+#: suffix before lookup so the same hints serve both ``load`` and
+#: ``load_previous``.
+_MISMATCH_HINTS: dict[str, str] = {
+    "Domain": "the YAML must declare exactly one `domain` block",
+    "Regulation": (
+        "regulations[] in the YAML is missing entries, or duplicate `code` "
+        "values collapsed under the uniqueness constraint. Confirm every "
+        "regulation has a unique `code`."
+    ),
+    "Verb": (
+        "verbs[] in the YAML is missing entries, or duplicate `name` "
+        "values collapsed under the uniqueness constraint. Confirm every "
+        "verb has a unique `name`."
+    ),
+    "Field": (
+        "a verb declares a payload_schema field that failed to project. "
+        "Field names must be distinct within a single verb's payload_schema."
+    ),
+    "Constraint": (
+        "constraints[] in the YAML is missing entries, or duplicate `name` "
+        "values collapsed under the uniqueness constraint. Confirm every "
+        "constraint has a unique `name`."
+    ),
+    "BELONGS_TO": (
+        "one or more verbs failed to attach to the domain. This should be "
+        "impossible if the YAML validated through Pydantic — open an issue "
+        "with the offending file attached."
+    ),
+    "MUST_SATISFY": (
+        "a verb's must_satisfy[] lists a regulation code that is NOT declared "
+        "in regulations[]. Confirm every code referenced in any verb's "
+        "must_satisfy[] appears as a `code` in regulations[]."
+    ),
+    "HAS_FIELD": (
+        "a verb's payload_schema entry failed to project. Field names must "
+        "be distinct within the same verb."
+    ),
+    "HAS_CONSTRAINT_OF": (
+        "a constraint's `verb` field names a verb that is NOT declared in "
+        "verbs[]. Confirm every `verb` value on a constraint matches a verb "
+        "name in the verbs[] block."
+    ),
+    "REFERENCES": (
+        "a constraint's `regulation` field references a regulation code that "
+        "is NOT declared in regulations[]. Confirm every `regulation` value "
+        "on a constraint matches a code in regulations[]."
+    ),
+    "SUPERSEDES": (
+        "a constraint's `supersedes` field names a constraint that is NOT "
+        "declared in constraints[]. Confirm every `supersedes` value matches "
+        "a constraint name in the same file."
+    ),
+}
+
+
 class LoaderMismatchError(RuntimeError):
-    """Post-load node/edge counts diverge from the source ontology."""
+    """Post-load node/edge counts diverge from the source ontology.
+
+    Most commonly raised when a ``must_satisfy``, ``verb``, ``regulation``,
+    or ``supersedes`` reference points to an entity that does not exist in
+    the YAML. The error carries a structured ``mismatches`` dict (kind →
+    ``(expected, observed)``) plus a human-readable diagnostic that names
+    the probable cause per kind.
+    """
+
+    def __init__(
+        self,
+        mismatches: dict[str, tuple[int, int]],
+        *,
+        label_suffix: str = "",
+    ) -> None:
+        self.mismatches = dict(mismatches)
+        self.label_suffix = label_suffix
+        super().__init__(self._format())
+
+    def _format(self) -> str:
+        scope = f" ({self.label_suffix} subgraph)" if self.label_suffix else ""
+        lines = [
+            f"ontology load did not produce the expected graph shape{scope}:",
+            "",
+        ]
+        for key in sorted(self.mismatches):
+            expected, observed = self.mismatches[key]
+            delta = observed - expected
+            sign = "+" if delta > 0 else ""
+            lines.append(
+                f"  - {key}: expected {expected}, observed {observed} "
+                f"({sign}{delta})"
+            )
+            # Strip the Prev suffix before looking up the hint.
+            bare = key.removesuffix("Prev")
+            hint = _MISMATCH_HINTS.get(bare)
+            if hint:
+                lines.append(f"    → Probable cause: {hint}")
+        lines.append("")
+        lines.append(
+            "Open the YAML and confirm every reference (verb names, "
+            "regulation codes, must_satisfy entries, supersedes targets) "
+            "points to an entity that is itself declared in the same file."
+        )
+        return "\n".join(lines)
 
 
 def load(session: Session, ontology: Ontology) -> dict[str, int]:
@@ -335,8 +436,5 @@ def _sanity_check(
         if expected[k] != observed[k]
     }
     if mismatches:
-        raise LoaderMismatchError(
-            "post-load counts diverge from ontology "
-            f"(expected vs. observed): {mismatches}"
-        )
+        raise LoaderMismatchError(mismatches, label_suffix=suffix)
     return observed

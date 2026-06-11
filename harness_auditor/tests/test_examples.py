@@ -51,7 +51,15 @@ _NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://127.0.0.1:7687")
 _NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
 _NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "auditor_local_only")
 _SHA = "0" * 64
-_CC11_DEFAULT_PARAMS = {"threshold_ratio": 1.3}
+#: Query parameter dict that mirrors what the production CLI passes to
+#: ``run_all``. Updated whenever a new ``$param`` lands in a CC's Cypher
+#: so the integration suite stays a single source of truth for the bundle
+#: of values every audit needs to run cleanly.
+_CC11_DEFAULT_PARAMS = {
+    "threshold_ratio": 1.3,
+    "coverage_threshold": 0.85,
+    "cc11_hysteresis": 0.05,
+}
 
 
 @dataclass(frozen=True)

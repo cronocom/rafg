@@ -70,7 +70,15 @@ class CriterionResult(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    criterion_id: str = PydField(pattern=r"^CC-\d{2}$")
+    criterion_id: str = PydField(
+        pattern=r"^CC-[A-Z0-9][A-Z0-9_-]*$",
+        description=(
+            "Stable identifier. Built-in CCs use `CC-NN` (two digits). "
+            "User-registered CCs may use any uppercase alphanumeric suffix "
+            "(e.g. `CC-X1`, `CC-FOO`). Collisions with built-ins are "
+            "rejected at registration time."
+        ),
+    )
     name: str
     status: CriterionStatus
     severity: Severity
@@ -82,6 +90,38 @@ class CriterionResult(BaseModel):
     latency_ms: float = PydField(ge=0)
     message: str = PydField(description="Human-readable summary of the finding")
     error: str | None = None
+
+
+class Environment(BaseModel):
+    """Reproducibility snapshot of the stack that produced the verdict.
+
+    Mirrors ``auditor_version`` and ``auditor_binary_sha256`` from the
+    top-level report so any consumer can read a single self-contained
+    ``environment`` block to know exactly which auditor binary, Python
+    runtime, Neo4j kernel, and GDS plugin combination produced a given
+    verdict. ``neo4j_version`` and ``gds_version`` are ``None`` when the
+    probe failed or GDS is not installed.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    auditor_version: str
+    auditor_binary_sha256: str = PydField(pattern=r"^[a-f0-9]{64}$")
+    python_version: str = PydField(
+        pattern=r"^\d+\.\d+\.\d+$",
+        description="Running interpreter version (MAJOR.MINOR.MICRO).",
+    )
+    neo4j_version: str | None = PydField(
+        default=None,
+        description="Neo4j kernel version reported by `dbms.components()`.",
+    )
+    gds_version: str | None = PydField(
+        default=None,
+        description="Graph Data Science plugin version, None when GDS absent.",
+    )
+    platform: str = PydField(
+        description="Short `system-machine` descriptor, e.g. `darwin-arm64`.",
+    )
 
 
 class AuditReport(BaseModel):
@@ -101,6 +141,7 @@ class AuditReport(BaseModel):
         default=None,
         description="Chains to the previous report, if any, for append-only auditing.",
     )
+    environment: Environment
 
     # Subject
     domain: str

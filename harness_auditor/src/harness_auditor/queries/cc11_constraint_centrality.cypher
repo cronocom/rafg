@@ -27,13 +27,58 @@
 //                   then PageRank + threshold filter.
 // Pre-req         : Neo4j 5.x with the graph-data-science plugin loaded
 //                   (handled by docker-compose.yml).
-// Skip condition  : the runner's skip_if hook returns SKIP when there are
-//                   zero SUPERSEDES edges — GDS cannot project an empty
-//                   relationship type.
-// Threshold       : `$threshold_ratio` (parameter from the runner; the
-//                   CLI reads CC11_THRESHOLD_RATIO env var, default 1.3).
-//                   A constraint is reported when its PageRank score
-//                   strictly exceeds `threshold_ratio * mean_score`.
+//
+// ----------------------------------------------------------------------------
+// Skip conditions
+// ----------------------------------------------------------------------------
+// The runner's `skip_if` hook (see `runner.py::_cc11_skip`) evaluates two
+// preconditions in this order:
+//
+//   1. **GDS plugin loaded** — probed via `gds.version()`. On a community
+//      Neo4j image without the plugin the call raises Neo4jError; CC-11
+//      SKIPs with the reason "GDS plugin not available — CC-11 requires
+//      gds.pageRank.stream". Other CCs run unaffected.
+//
+//   2. **At least one SUPERSEDES edge** — probed via
+//      `db.relationshipTypes()`. GDS cannot project an empty relationship
+//      type, so a zero-SUPERSEDES ontology SKIPs with reason "no
+//      SUPERSEDES edges in the graph — CC-11 not applicable".
+//
+// ----------------------------------------------------------------------------
+// Threshold (with hysteresis)
+// ----------------------------------------------------------------------------
+// A constraint is reported when:
+//
+//     score > ($threshold_ratio + $cc11_hysteresis) * mean_score
+//
+// where:
+//
+//   * `$threshold_ratio`   — read from the CLI from the CC11_THRESHOLD_RATIO
+//                            env var. Default `1.3` (strict but realistic
+//                            for fintech ontologies). Must be > 1.0.
+//   * `$cc11_hysteresis`   — small margin to stabilise the verdict across
+//                            runs. PageRank converges iteratively and
+//                            tolerance noise can flip a borderline
+//                            constraint between PASS and FAIL between
+//                            two consecutive audits of the same input;
+//                            the margin keeps the verdict reproducible.
+//                            Default `0.05` (= 5 percentage points on top
+//                            of the ratio). Bake-into-default rather than
+//                            an env var so the released contract has a
+//                            single source of truth.
+//
+// **Effective threshold** with defaults: `(1.3 + 0.05) * mean = 1.35 *
+// mean`. A user setting `CC11_THRESHOLD_RATIO=1.5` raises the effective
+// threshold to `1.55 * mean`. The README and `docs/CRITERIA.md` say the
+// same numbers in the same form. Whenever this query, the README, or
+// CRITERIA.md changes the constant, the other two must be updated in the
+// same commit; the `make notebook-test` target catches drift between the
+// query and the demo, but does not catch drift between the prose
+// documentation and the formula here.
+//
+// `coalesce(..., 0.05)` falls back to the default hysteresis when the
+// parameter is missing, so the query stays runnable from the Neo4j
+// Browser without setup.
 //
 // ----------------------------------------------------------------------------
 // Why no cleanup statement
@@ -90,12 +135,10 @@
 //     ]
 //     -- Status = FAIL (advisory), severity = HIGH.
 //     -- All three cycle members tie at ratio ~1.94x due to PageRank's
-//     -- steady-state symmetry across the cycle (each receives identical
-//     -- flow from its predecessor). The 4 acyclic constraints in the
-//     -- ontology have no incoming SUPERSEDES (~0.0214 each), which
-//     -- pulls the graph mean down and inflates the cycle members'
-//     -- uniform ratio above the 1.3 default threshold.
-//     -- See "Behaviour on cyclic SUPERSEDES graphs" above.
+//     -- steady-state symmetry across the cycle. The 4 acyclic
+//     -- constraints have no incoming SUPERSEDES (~0.0214 each), which
+//     -- pulls the graph mean down; the cycle members' 1.94x exceeds
+//     -- the default effective threshold (1.30 + 0.05 = 1.35).
 //
 // Concentrated fixture (tests/fixtures/fintech_centrality_concentrated.yaml,
 // four constraints all SUPERSEDE `base_rule`):
@@ -109,7 +152,7 @@
 //     ]
 //     -- Status = FAIL (advisory), severity = HIGH.
 //     -- Pure base-constraint signal: no cycles, one node legitimately
-//     -- central. This is the canonical positive case for CC-11.
+//     -- central. Canonical positive case for CC-11.
 // ============================================================================
 
 // ---- Statement 1: drop any leftover projection (idempotent) ----
@@ -126,7 +169,7 @@ CALL gds.graph.project(
 ) YIELD graphName, nodeCount, relationshipCount
 RETURN graphName, nodeCount, relationshipCount;
 
-// ---- Statement 3: PageRank, compute mean, filter by threshold ratio ----
+// ---- Statement 3: PageRank, compute mean, filter by threshold + hysteresis ----
 CALL gds.pageRank.stream('cc11_supersedes', {
   maxIterations: 20,
   dampingFactor: 0.85
@@ -141,9 +184,14 @@ WITH all_rows,
        ELSE 0.0
      END AS mean_score
 UNWIND all_rows AS row
-WITH row.c AS c, row.score AS score, mean_score
+// Effective threshold = ($threshold_ratio + $cc11_hysteresis) * mean.
+// See the "Threshold (with hysteresis)" comment block above for why
+// the hysteresis is applied here and how it interacts with the
+// documented defaults.
+WITH row.c AS c, row.score AS score, mean_score,
+     coalesce($cc11_hysteresis, 0.05) AS hysteresis
 WHERE mean_score > 0
-  AND score > $threshold_ratio * mean_score
+  AND score > ($threshold_ratio + hysteresis) * mean_score
 RETURN c.name             AS constraint,
        c.regulation        AS regulation,
        c.severity          AS constraint_severity,

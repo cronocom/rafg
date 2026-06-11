@@ -4,6 +4,9 @@
 #   - `up` / `down` manage the ephemeral Neo4j sandbox.
 #   - `audit` requires ONTOLOGY=<path>; refuses to run without it (fail-closed).
 #   - `wait` blocks until Bolt accepts connections.
+#   - `notebook-test` and the integration tests require a live sandbox; the
+#     `_check-bolt-up` helper gives them a fast, friendly diagnostic when
+#     the container is down (instead of a 60-line neo4j traceback).
 #   - All paths are relative to this Makefile.
 #
 # Python binary:
@@ -41,6 +44,19 @@ check-python:  ## Diagnose the Python binary used by this Makefile
 	@echo "PYTHON   : $(PYTHON)"
 	@echo "Resolved : $$(command -v $(PYTHON))"
 	@$(PYTHON) --version
+
+# Private helper (underscore-prefixed → hidden from `make help`). Probes
+# Bolt with a short-timeout TCP connect and prints an actionable message
+# when the sandbox is not up. Targets that need a live sandbox depend on
+# this so the user gets one clear line instead of a stacktrace.
+.PHONY: _check-bolt-up
+_check-bolt-up:
+	@if ! $(PYTHON) -c "import socket; s=socket.socket(); s.settimeout(2); s.connect(('127.0.0.1', 7687)); s.close()" >/dev/null 2>&1; then \
+	  echo "ERROR: Neo4j sandbox is not reachable at bolt://127.0.0.1:7687." >&2; \
+	  echo "  Start it first with:  make up" >&2; \
+	  echo "  Then re-run the target you wanted (e.g. make notebook-test)." >&2; \
+	  exit 3; \
+	fi
 
 .PHONY: up
 up:  ## Start the ephemeral Neo4j sandbox
@@ -102,6 +118,18 @@ test-fast: check-python  ## Run only tests that do NOT need a live Neo4j sandbox
 lint: check-python  ## Lint + type-check
 	$(PYTHON) -m ruff check src tests
 	$(PYTHON) -m mypy src
+
+.PHONY: notebook-test
+notebook-test: check-python _check-bolt-up  ## Headless-execute the demo notebook (requires .[notebook] + a live sandbox)
+	@if ! $(PYTHON) -c "import nbconvert" >/dev/null 2>&1; then \
+	  echo "ERROR: notebook extras not installed." >&2; \
+	  echo "  Install with: $(PIP) install -e \".[notebook]\"" >&2; \
+	  exit 2; \
+	fi
+	$(PYTHON) -m jupyter nbconvert --to notebook --execute \
+	  notebooks/01_quickstart.ipynb --output /tmp/01_quickstart_executed.ipynb
+	@rm -f /tmp/01_quickstart_executed.ipynb
+	@echo "Notebook executed cleanly."
 
 .PHONY: clean
 clean:  ## Remove reports and Python caches

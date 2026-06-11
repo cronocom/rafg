@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "harness-auditor"
-version = "0.1.0"
+version = "0.2.0"
 description = "Pre-execution certification of RAGF governance harnesses via Cypher over Neo4j"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -28,6 +28,7 @@ classifiers = [
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
   "Topic :: Software Development :: Quality Assurance",
 ]
@@ -47,6 +48,22 @@ dev = [
   "ruff>=0.4",
   "mypy>=1.10",
   "types-PyYAML",
+]
+# Extras for running notebooks/01_quickstart.ipynb. Kept separate from
+# `dev` because pulling Jupyter into a CI image inflates it by hundreds of
+# MB unnecessarily — only contributors who actually open the notebook need
+# this set.
+notebook = [
+  "jupyter>=1.0",
+  "ipykernel>=6.0",
+  "pandas>=2.0",
+  "matplotlib>=3.8",
+]
+# Ed25519-signed attestation bundles for regulated environments. Optional
+# because the core HMAC pipeline does not need an asymmetric primitive;
+# only `harness-audit bundle` / `verify-bundle` require it.
+bundle = [
+  "cryptography>=42.0",
 ]
 
 [project.scripts]

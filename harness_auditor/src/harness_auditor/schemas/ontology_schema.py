@@ -16,8 +16,13 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
 from pydantic import Field as PydField
+
+#: Schema-contract major version this auditor understands. An ontology
+#: with a different major is rejected by ``Ontology.schema_version``'s
+#: validator with an actionable pointer at the CHANGELOG.
+SUPPORTED_SCHEMA_MAJOR: int = 1
 
 # ---------------------------------------------------------------------------
 # Primitive types
@@ -179,6 +184,36 @@ class Constraint(BaseModel):
         description="Name of the constraint that this one overrides when triggered.",
     )
 
+    @field_validator("value")
+    @classmethod
+    def _homogeneous_value_list(cls, v: Any) -> Any:
+        """Neo4j only stores homogeneous arrays; reject mixed types early.
+
+        A list like ``[1, "a", True]`` validates as ``list[Any]`` but the
+        loader fails with an opaque ``Neo4jError`` at write time. Rejecting
+        here keeps the error close to the source.
+        """
+        if isinstance(v, list) and v:
+            # bool is a subclass of int in Python; treat them as distinct
+            # because Neo4j's typed-array stores them differently.
+            def _normalised_type(x: Any) -> type:
+                return bool if isinstance(x, bool) else type(x)
+
+            first = _normalised_type(v[0])
+            offending = {
+                _normalised_type(x).__name__
+                for x in v
+                if _normalised_type(x) is not first
+            }
+            if offending:
+                raise ValueError(
+                    f"value lists must be homogeneous; got mixed types "
+                    f"{{{first.__name__}, {', '.join(sorted(offending))}}}. "
+                    f"Neo4j stores arrays as a single typed sequence; split "
+                    f"the constraint or coerce all elements to the same type."
+                )
+        return v
+
 
 # ---------------------------------------------------------------------------
 # Root document
@@ -199,6 +234,27 @@ class Ontology(BaseModel):
     regulations: list[Regulation]
     verbs: list[Verb]
     constraints: list[Constraint]
+
+    @field_validator("schema_version")
+    @classmethod
+    def _check_supported_major(cls, v: str) -> str:
+        """Reject ontologies whose major version this auditor cannot read.
+
+        Future format-breaking changes bump ``SUPPORTED_SCHEMA_MAJOR``;
+        consumers that need to support multiple schema majors should pin
+        a specific auditor version per ontology generation. Without this
+        check, a YAML claiming ``schema_version: "2.0"`` would load and
+        silently produce a wrong verdict.
+        """
+        major = int(v.split(".")[0])
+        if major != SUPPORTED_SCHEMA_MAJOR:
+            raise ValueError(
+                f"unsupported schema_version {v!r}; this auditor reads major "
+                f"{SUPPORTED_SCHEMA_MAJOR}.x only. See CHANGELOG.md for the "
+                f"version-compatibility matrix and pin the auditor release "
+                f"that matches your ontology's major."
+            )
+        return v
 
 
 class Taxonomy(BaseModel):

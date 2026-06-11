@@ -30,12 +30,13 @@ The ``skip_if`` hook is used by criteria that need optional inputs:
 
   - CC-07 needs a previous-version load (any ``ConstraintPrev`` node).
   - CC-10 needs a taxonomy load (any ``TaxonomyEntry`` node).
-  - CC-11 needs at least one ``SUPERSEDES`` edge (Graph Data Science
-    cannot project a relationship type that has no instances).
+  - CC-11 needs both the GDS plugin loaded and at least one
+    ``SUPERSEDES`` edge in the graph. Either missing means CC-11 SKIPs
+    cleanly rather than ERRORing on a procedure-not-found.
 
 When the upstream caller does not provide them the relevant subgraph is
 missing and the criterion SKIPs cleanly instead of producing a misleading
-PASS or ERROR. All three hooks consult ``db.labels()`` /
+PASS or ERROR. The label/relationship-type probes consult ``db.labels()`` /
 ``db.relationshipTypes()`` rather than running a ``MATCH`` against the
 unknown label/type, so they do not emit the UnknownLabelWarning that
 Neo4j attaches to patterns referencing a never-instantiated label.
@@ -58,6 +59,7 @@ from typing import Any, Literal
 from neo4j import Session
 from neo4j.exceptions import Neo4jError
 
+from harness_auditor._environment import probe_gds_version
 from harness_auditor.schemas.report_schema import (
     CriterionResult,
     CriterionStatus,
@@ -69,6 +71,20 @@ AggregatorRole = Literal["blocking", "advisory"]
 
 @dataclass(frozen=True)
 class CriterionDefinition:
+    """Declarative spec for one certification criterion.
+
+    The built-in 11 CCs are constructed without ``query_dir``: they live in
+    ``packaged_queries_dir()`` and the runner resolves them against the
+    ``queries_dir`` argument passed to ``run_all`` (the bundled set by
+    default; user override via ``--queries-dir``).
+
+    A *custom* CC registered through ``register_criterion`` typically lives
+    outside the package — set ``query_dir`` to the directory containing the
+    ``.cypher`` file and the runner will read it from there regardless of
+    what ``--queries-dir`` is pointing at. This lets users mix built-in and
+    custom CCs without copying the built-in queries into their tree.
+    """
+
     criterion_id: str
     name: str
     query_file: str
@@ -76,6 +92,7 @@ class CriterionDefinition:
     severity_for: Callable[[list[dict[str, Any]]], Severity]
     message_for: Callable[[list[dict[str, Any]]], str]
     skip_if: Callable[[Session], tuple[bool, str]] | None = None
+    query_dir: Path | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -160,14 +177,31 @@ def _cc06_severity(_rows: list[dict[str, Any]]) -> Severity:
 
 
 def _cc06_message(rows: list[dict[str, Any]]) -> str:
+    """Build the CC-06 message without hard-coding the threshold.
+
+    The PASS branch has no rows to read the threshold from, so it speaks
+    in terms of "the configured threshold" rather than printing a number
+    that may be wrong (a user with ``CC06_COVERAGE_THRESHOLD=0.9`` would
+    otherwise see a message claiming the threshold is 0.85).
+
+    The FAIL branch reads ``threshold`` from the first row — the Cypher
+    returns it on every row so all evidence carries the value that was
+    actually applied.
+    """
     if not rows:
-        return "every verb meets the 0.85 regulatory coverage threshold"
+        return "every verb meets the configured regulatory coverage threshold"
+    threshold = rows[0].get("threshold")
+    threshold_str = (
+        f"{float(threshold):.2f}" if isinstance(threshold, (int, float)) else "?"
+    )
     items = ", ".join(
         f"{r['verb']} ({int(r['matched_count'])}/{int(r['declared_count'])} "
         f"= {float(r['coverage']):.2f})"
         for r in rows
     )
-    return f"{len(rows)} verb(s) below coverage threshold: {items}"
+    return (
+        f"{len(rows)} verb(s) below coverage threshold {threshold_str}: {items}"
+    )
 
 
 def _cc07_severity(rows: list[dict[str, Any]]) -> Severity:
@@ -262,15 +296,34 @@ def _cc11_message(rows: list[dict[str, Any]]) -> str:
 
 
 def _cc11_skip(session: Session) -> tuple[bool, str]:
-    # GDS cannot project a relationship type that has zero instances --
-    # `gds.graph.project` raises with the relevant message. Pre-check via
-    # `db.relationshipTypes()` so an ontology with no SUPERSEDES (the most
-    # common case for small fintech ontologies) SKIPs cleanly rather than
-    # ERRORs, and without triggering an UnknownRelationshipTypeWarning.
-    #
-    # Note: when SUPERSEDES exists but the graph is cyclic, CC-11 does NOT
-    # skip -- it fires alongside CC-04 as documented in CRITERIA.md
-    # § CC-11 (Behaviour on cyclic SUPERSEDES graphs).
+    """Two preconditions, evaluated in order.
+
+    The order matters: GDS first, SUPERSEDES second.
+
+    1. **GDS plugin loaded** — the query begins with `CALL gds.graph.exists`,
+       which on a community image without the plugin raises Neo4jError
+       (procedure not found) and the runner would surface that as ERROR.
+       The user's expectation, given that CC-11 is *advisory* and GDS is
+       an *optional* plugin, is a clean SKIP. ERROR would imply something
+       is broken in their setup; SKIP correctly signals "this CC has an
+       unmet optional dependency". We reuse ``probe_gds_version`` so the
+       detection logic lives in exactly one place.
+
+    2. **At least one SUPERSEDES edge** — GDS cannot project a
+       relationship type that has zero instances; ``gds.graph.project``
+       raises with that exact message. Pre-checking via
+       ``db.relationshipTypes()`` lets ontologies with no SUPERSEDES (the
+       most common case for small fintech ontologies) SKIP cleanly,
+       without triggering an UnknownRelationshipTypeWarning either.
+
+    Note: when SUPERSEDES exists *and* the graph is cyclic, CC-11 does NOT
+    skip -- it fires alongside CC-04 as documented in CRITERIA.md
+    § CC-11 (Behaviour on cyclic SUPERSEDES graphs).
+    """
+    if probe_gds_version(session) is None:
+        return True, (
+            "GDS plugin not available -- CC-11 requires gds.pageRank.stream"
+        )
     if not _relationship_type_present(session, "SUPERSEDES"):
         return True, "no SUPERSEDES edges in the graph -- CC-11 not applicable"
     return False, ""
@@ -370,14 +423,87 @@ REGISTRY: tuple[CriterionDefinition, ...] = (
 )
 
 #: Public lookup used by ``report.aggregate`` to classify failures.
+#:
+#: Built-ins are seeded at import time. ``register_criterion`` mutates this
+#: dict so user-registered CCs participate in aggregation without report.py
+#: needing a callable indirection.
 AGGREGATOR_ROLE: dict[str, AggregatorRole] = {
     d.criterion_id: d.aggregator_role for d in REGISTRY
 }
+
+#: User-registered criteria, mutated by ``register_criterion`` /
+#: ``unregister_criterion``. Kept separate from the built-in ``REGISTRY``
+#: tuple so the contract of the package's API stays clear: built-ins are
+#: immutable; extensions live here.
+_USER_CRITERIA: list[CriterionDefinition] = []
 
 
 def packaged_queries_dir() -> Path:
     """Return the queries directory bundled with the installed package."""
     return Path(__file__).resolve().parent / "queries"
+
+
+def effective_registry() -> tuple[CriterionDefinition, ...]:
+    """Built-in ``REGISTRY`` concatenated with any user-registered criteria.
+
+    ``run_all`` uses this as its default registry. Tests and embedders that
+    want determinism — e.g., a CI gate that asserts "only built-ins" — should
+    pass ``registry=REGISTRY`` explicitly.
+    """
+    return REGISTRY + tuple(_USER_CRITERIA)
+
+
+def register_criterion(definition: CriterionDefinition) -> None:
+    """Register a user-defined CC. Extends ``effective_registry()``.
+
+    Validates that ``criterion_id`` does not collide with any existing
+    built-in or already-registered user CC. Raises ``ValueError`` on
+    collision so a typo or accidental double-registration is caught at
+    registration time, not at audit time.
+
+    Use ``--queries-dir`` *or* set ``CriterionDefinition.query_dir`` so the
+    runner knows where to find the ``.cypher`` file (the built-ins always
+    resolve against ``packaged_queries_dir()`` via the runner's ``queries_dir``
+    argument; custom CCs typically carry their own ``query_dir``).
+    """
+    for d in REGISTRY:
+        if d.criterion_id == definition.criterion_id:
+            raise ValueError(
+                f"CC id {definition.criterion_id!r} collides with a built-in "
+                f"criterion. Pick a different id (e.g. CC-X1, CC-FOO) for "
+                f"custom criteria so they cannot mask a built-in."
+            )
+    for d in _USER_CRITERIA:
+        if d.criterion_id == definition.criterion_id:
+            raise ValueError(
+                f"CC id {definition.criterion_id!r} is already registered. "
+                f"Call unregister_criterion({definition.criterion_id!r}) first "
+                f"if you want to replace it."
+            )
+    _USER_CRITERIA.append(definition)
+    AGGREGATOR_ROLE[definition.criterion_id] = definition.aggregator_role
+
+
+def unregister_criterion(criterion_id: str) -> None:
+    """Remove a previously registered user CC. No-op for unknown ids.
+
+    Built-in CCs cannot be unregistered; attempting to remove one raises
+    ``ValueError``.
+    """
+    for d in REGISTRY:
+        if d.criterion_id == criterion_id:
+            raise ValueError(
+                f"{criterion_id!r} is a built-in CC and cannot be unregistered"
+            )
+    _USER_CRITERIA[:] = [d for d in _USER_CRITERIA if d.criterion_id != criterion_id]
+    AGGREGATOR_ROLE.pop(criterion_id, None)
+
+
+def reset_user_criteria() -> None:
+    """Drop every user-registered CC. Useful for test isolation."""
+    for d in _USER_CRITERIA:
+        AGGREGATOR_ROLE.pop(d.criterion_id, None)
+    _USER_CRITERIA.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -422,17 +548,24 @@ def _split_cypher_statements(text: str) -> list[str]:
 def run_all(
     session: Session,
     queries_dir: Path,
-    registry: Sequence[CriterionDefinition] = REGISTRY,
+    registry: Sequence[CriterionDefinition] | None = None,
     query_params: dict[str, Any] | None = None,
 ) -> list[CriterionResult]:
     """Execute every registered criterion against ``session`` in declaration order.
+
+    When ``registry`` is omitted (the typical case) the runner uses
+    ``effective_registry()`` — the canonical 11 built-ins plus any user CCs
+    added via ``register_criterion``. Pass ``registry=REGISTRY`` explicitly
+    to opt out of user extensions (useful in CI gates that want strict
+    determinism).
 
     ``query_params`` is a global parameter dict applied to every Cypher
     statement; Neo4j silently ignores parameters not referenced by a query,
     so this keeps the runner uniform without per-criterion plumbing.
     """
+    active = effective_registry() if registry is None else registry
     params = query_params or {}
-    return [_run_one(session, queries_dir, d, params) for d in registry]
+    return [_run_one(session, queries_dir, d, params) for d in active]
 
 
 def _run_one(
@@ -455,7 +588,12 @@ def _run_one(
                 message=reason,
             )
 
-    query_path = queries_dir / definition.query_file
+    # Per-CC `query_dir` overrides the runner's default. Used by user-
+    # registered CCs whose `.cypher` lives outside the package.
+    effective_dir = (
+        definition.query_dir if definition.query_dir is not None else queries_dir
+    )
+    query_path = effective_dir / definition.query_file
     query_text = query_path.read_text(encoding="utf-8")
     statements = _split_cypher_statements(query_text)
     if not statements:

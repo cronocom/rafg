@@ -10,8 +10,15 @@ build/
 .mypy_cache/
 .ruff_cache/
 
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
 # Reports (signed audit outputs; do not commit)
 reports/
+
+# Attestation bundles (Ed25519-signed artefacts; reproduce locally)
+bundles/
 
 # Local environment
 .env

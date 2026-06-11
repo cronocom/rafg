@@ -5,7 +5,7 @@ Three artifacts are written under ``reports/<ontology_sha256>/``:
 
   - ``report.json`` — canonical compact JSON of the ``AuditReport``.
   - ``report.md``   — Markdown narrative rendered from the report.
-  - ``report.sig``  — hex HMAC-SHA256 over the bytes of ``report.json``,
+  - ``report.sig``  — hex HMAC-SHA256 over ``HMAC_DOMAIN_TAG + report.json``,
                       keyed by ``AUDITOR_HMAC_KEY``. Omitted when no key is
                       provided; in that case the report status is forced to
                       ``REQUIRES_REVIEW`` regardless of criterion outcomes.
@@ -32,12 +32,15 @@ from pathlib import Path
 from typing import Any
 
 from harness_auditor import __version__
+from harness_auditor._attestation import auditor_binary_sha256
+from harness_auditor._environment import platform_string, python_version
 from harness_auditor.runner import AGGREGATOR_ROLE
 from harness_auditor.schemas.report_schema import (
     AuditReport,
     CertificationStatus,
     CriterionResult,
     CriterionStatus,
+    Environment,
 )
 
 _EVIDENCE_PREVIEW_ROWS = 5
@@ -67,19 +70,44 @@ def build_report(
     domain_version: str,
     criteria: list[CriterionResult],
     hmac_key_present: bool,
+    neo4j_version: str | None = None,
+    gds_version: str | None = None,
 ) -> AuditReport:
-    """Build the ``AuditReport``. Forces ``REQUIRES_REVIEW`` if no HMAC key."""
+    """Build the ``AuditReport``. Forces ``REQUIRES_REVIEW`` if no HMAC key.
+
+    ``neo4j_version`` and ``gds_version`` are runtime probes the caller is
+    expected to have run while a session was still open (see
+    ``harness_auditor._environment``). They are kept as parameters rather
+    than computed inside ``build_report`` so this function stays pure
+    Python and can be unit-tested without a live database.
+
+    Provenance fields (``auditor_version``, ``auditor_binary_sha256``) are
+    sourced once and propagated through the ``Environment`` block; the
+    top-level fields are mirrored from it so the report carries a single
+    source of truth that downstream consumers can read either way.
+    """
     status = aggregate(criteria)
     if not hmac_key_present:
         status = CertificationStatus.REQUIRES_REVIEW
 
     counts = _summarise(criteria)
-    return AuditReport(
+    environment = Environment(
         auditor_version=__version__,
+        auditor_binary_sha256=auditor_binary_sha256(),
+        python_version=python_version(),
+        neo4j_version=neo4j_version,
+        gds_version=gds_version,
+        platform=platform_string(),
+    )
+    return AuditReport(
+        # Mirror from environment so the two values cannot drift apart
+        # under refactor — see the docstring above.
+        auditor_version=environment.auditor_version,
         timestamp_utc=datetime.now(UTC),
         ontology_sha256=ontology_sha256,
-        auditor_binary_sha256=None,
+        auditor_binary_sha256=environment.auditor_binary_sha256,
         previous_report_sha256=None,
+        environment=environment,
         domain=domain,
         domain_version=domain_version,
         certification_status=status,
@@ -106,6 +134,33 @@ def _summarise(criteria: list[CriterionResult]) -> dict[str, int]:
     }
 
 
+#: Domain-separation tag prepended to the canonical JSON bytes before HMAC.
+#:
+#: Without this tag, a signature produced by `harness-audit` over a report
+#: would be indistinguishable in scheme from a signature produced by any
+#: other tool that HMAC-SHA256s arbitrary JSON with the same key. The tag
+#: cryptographically scopes the signature to "this auditor, this report
+#: format, this contract version".
+#:
+#: Format: ``b"harness-auditor:report:v1\0"``. The trailing NUL prevents any
+#: prefix-collision attack across future format versions, the version
+#: counter (``v1``) is bumped any time the canonical JSON shape changes in
+#: a way that consumers must be aware of.
+HMAC_DOMAIN_TAG: bytes = b"harness-auditor:report:v1\0"
+
+
+def hmac_signature(key: str, canonical_bytes: bytes) -> str:
+    """Compute the hex HMAC-SHA256 over ``HMAC_DOMAIN_TAG + canonical_bytes``.
+
+    Centralised so both ``write_artifacts`` (sign) and the verify command
+    (re-check) use the same scheme; the domain tag is applied exactly once
+    in both paths.
+    """
+    mac = hmac.new(key.encode("utf-8"), HMAC_DOMAIN_TAG, hashlib.sha256)
+    mac.update(canonical_bytes)
+    return mac.hexdigest()
+
+
 def write_artifacts(
     report: AuditReport,
     reports_dir: Path,
@@ -119,10 +174,9 @@ def write_artifacts(
     (out_dir / "report.json").write_bytes(json_bytes)
     (out_dir / "report.md").write_text(render_markdown(report), encoding="utf-8")
     if hmac_key:
-        sig = hmac.new(
-            hmac_key.encode("utf-8"), json_bytes, hashlib.sha256
-        ).hexdigest()
-        (out_dir / "report.sig").write_text(sig + "\n", encoding="utf-8")
+        (out_dir / "report.sig").write_text(
+            hmac_signature(hmac_key, json_bytes) + "\n", encoding="utf-8"
+        )
     return out_dir
 
 
