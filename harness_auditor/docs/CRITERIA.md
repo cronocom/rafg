@@ -5,7 +5,7 @@ This document is the source of truth for the eleven certification criteria
 without affecting the others. The aggregate verdict is fail-closed — see
 §Aggregation.
 
-All eleven criteria are shipped as of v0.1.0. CC-07, CC-10 and CC-11 require
+All eleven criteria are shipped as of v0.2.0. CC-07, CC-10 and CC-11 require
 optional inputs or graph preconditions and SKIP automatically when those are
 absent. CC-09 is also enforced statically by the Pydantic ontology schema
 (`Decision` enum) and exists at runtime to catch drift introduced via direct
@@ -19,12 +19,12 @@ Every criterion exposes:
 
 | Field | Meaning |
 |---|---|
-| `criterion_id` | `CC-NN` (zero-padded) |
+| `criterion_id` | `CC-NN` (zero-padded) for built-ins; user-registered CCs use any pattern matching `^CC-[A-Z0-9][A-Z0-9_-]*$` (e.g. `CC-X1`, `CC-FOO_BAR`). Collisions with built-ins are rejected at registration time. |
 | `name` | Human-readable label |
 | `mechanism` | `cypher` \| `cypher+gds` \| `cypher+diff` |
 | `severity_default` | Default severity if the criterion fires |
 | `severity_escalation` | Conditions that escalate severity to `critical` |
-| `evidence_query` | Path to the `.cypher` file under `queries/` |
+| `evidence_query` | Path to the `.cypher` file under the runner's `queries_dir` (built-ins) or the CC's own `query_dir` (user-registered) |
 | `expected_pass` | The exact result the query must return for `PASS` |
 | `aggregator_role` | `blocking` \| `advisory` |
 
@@ -116,9 +116,14 @@ criterion to PASS and every advisory criterion to be PASS or WARN.
 - **Expected pass**: empty result set (every verb at or above threshold)
 - **Detects**: per-verb regulatory coverage gaps. For each verb that declares
   ≥ 1 `MUST_SATISFY`, computes `coverage = (#declared regs with ≥ 1 enforcing
-  constraint on this verb) / (#declared regs)`. Verbs below the hard-coded
-  threshold (0.85, matching the AgentSave dictionary default) are flagged
-  with their list of uncovered regulation codes.
+  constraint on this verb) / (#declared regs)`. Verbs below the configured
+  threshold are flagged with their list of uncovered regulation codes.
+- **Threshold**: `$coverage_threshold` (parameter from the runner; the CLI
+  reads `CC06_COVERAGE_THRESHOLD` env var, default `0.85` — the canonical
+  RAGF v2.4 dictionary default). Must be in `(0, 1]`. Domains with stricter
+  coverage demands can raise it (e.g. `0.95`); more permissive domains can
+  lower it. The threshold the query actually applied is returned in every
+  evidence row.
 - **Note**: verbs with zero `MUST_SATISFY` are not reported here — they are
   CC-01's domain.
 
@@ -221,12 +226,28 @@ criterion to PASS and every advisory criterion to be PASS or WARN.
   base. Editing or removing a central constraint cascades silently across
   every supersessor that resolves to it; CC-11 surfaces those constraints
   so they can be marked for elevated human review before any future edit.
-- **Threshold**: `score > $threshold_ratio * mean_score`, where
-  `threshold_ratio` is read by `cli.py` from the
-  `CC11_THRESHOLD_RATIO` env var and propagated as a query parameter.
-  Default is `1.3` — strict but realistic for fintech ontologies. Domains
-  with permissive risk profiles can raise the ratio (e.g. `2.0`) to reduce
-  noise; stricter domains can lower it (must be > 1.0).
+- **Threshold (with hysteresis)**: a constraint is reported when
+
+  ```
+  score > ($threshold_ratio + $cc11_hysteresis) * mean_score
+  ```
+
+  - `$threshold_ratio` is read by `cli.py` from the `CC11_THRESHOLD_RATIO`
+    env var (default `1.3`, must be > 1.0).
+  - `$cc11_hysteresis` is a stability margin baked into the release at
+    `0.05`. PageRank converges iteratively; tolerance noise can flip a
+    borderline constraint between PASS and FAIL between two consecutive
+    audits of the same input. The margin keeps verdicts reproducible at
+    the cost of shifting the *effective* threshold above the documented
+    ratio by a constant amount.
+
+  With defaults, the effective threshold is `(1.3 + 0.05) * mean = 1.35 *
+  mean`. A user setting `CC11_THRESHOLD_RATIO=1.5` shifts the effective
+  threshold to `1.55 * mean`. The hysteresis is intentionally not
+  user-configurable in v0.2 — it is a property of the algorithm's
+  numerical stability, not a policy lever. If a future release exposes it
+  (e.g. for offline analysis at lower margins), this section is the
+  authoritative anchor for the contract change.
 - **Why advisory**: a legitimately dense `SUPERSEDES` tree is normal in
   mature fintech ontologies. Blocking releases on every dense subgraph
   would produce permanent `FAILED` status without any actionable defect.
@@ -235,11 +256,23 @@ criterion to PASS and every advisory criterion to be PASS or WARN.
   edit". Organisations with stricter risk appetite can override the
   aggregator role to `blocking` in their fork.
 - **Operational note**: requires the GDS plugin (loaded by the bundled
-  `docker-compose.yml`). SKIPped automatically when the graph contains no
-  `SUPERSEDES` edges (the runner's `skip_if` hook, which uses
-  `db.relationshipTypes()` to avoid the UnknownRelationshipTypeWarning
-  Neo4j emits when a pattern references a never-instantiated type) — GDS
-  cannot project an empty relationship type.
+  `docker-compose.yml`). The runner's `skip_if` checks two preconditions
+  before firing CC-11, **in this order**:
+    1. The GDS plugin is loaded — probed via `gds.version()`. On a
+       community image without the plugin the call raises `Neo4jError`
+       and CC-11 SKIPs with the reason
+       `GDS plugin not available — CC-11 requires gds.pageRank.stream`.
+       The other ten CCs run unaffected, so the report still produces a
+       verdict; only the centrality signal is unavailable.
+    2. At least one `SUPERSEDES` edge exists — probed via
+       `db.relationshipTypes()` to avoid the
+       UnknownRelationshipTypeWarning Neo4j emits when a pattern
+       references a never-instantiated type. GDS cannot project an empty
+       relationship type, so an empty SUPERSEDES means SKIP.
+
+  The two SKIP reasons are stable strings; downstream pipelines that want
+  to alert on GDS misconfiguration (but not on legitimately empty
+  SUPERSEDES graphs) can match on the `GDS plugin not available` prefix.
 - **Behaviour on cyclic SUPERSEDES graphs**: when the SUPERSEDES graph
   contains a cycle (i.e. CC-04 fires), CC-11 may also fire on the cycle
   members. This is a side-effect of PageRank's steady-state behaviour on
@@ -260,7 +293,8 @@ criterion to PASS and every advisory criterion to be PASS or WARN.
 
 ## Aggregation
 
-The certification status is computed as:
+The certification status is computed by `harness_auditor.report.aggregate`
+as:
 
 ```
 if any blocking criterion has status FAIL or ERROR → FAILED
@@ -270,3 +304,60 @@ else                                                → PASSED
 
 `SKIP` is never counted as a failure. `WARN` is only valid for advisory
 criteria and never blocks a `PASSED` verdict on its own.
+
+**HMAC overlay**: when `AUDITOR_HMAC_KEY` is unset at audit time, the
+verdict is **forced** to `REQUIRES_REVIEW` regardless of the per-criterion
+outcome, and `report.sig` is omitted. The rationale: an unsigned report
+cannot be trusted in a downstream verifier chain, and the auditor refuses
+to certify an artifact it cannot prove it produced. This is implemented
+in `build_report(..., hmac_key_present=...)`; downstream embedders that
+build reports programmatically should pass `True` when their pipeline
+applies a signature externally.
+
+**HMAC scheme (v0.2.0)**: the signature is
+`HMAC-SHA256(key, HMAC_DOMAIN_TAG ‖ canonical_json)`, where
+`HMAC_DOMAIN_TAG = b"harness-auditor:report:v1\0"`. The domain tag
+scopes the signature to this auditor and this report-format version,
+preventing a signature replay onto any other artefact a holder of the
+same key may sign. **Breaking change vs v0.1.0**: signatures produced by
+v0.1.0 do not verify under v0.2.0; re-run the audit on the new version
+to produce a v2 signature, or use the attestation bundle (Ed25519) for
+cross-organisation provenance.
+
+---
+
+## User-defined certification criteria
+
+The eleven CCs above are the **built-in** registry. Organisations with
+domain-specific policies can extend the auditor with their own CCs
+without forking the package, using the public registry-extension API:
+
+```python
+from harness_auditor import CriterionDefinition, register_criterion, Severity
+
+register_criterion(CriterionDefinition(
+    criterion_id="CC-X1",                       # any uppercase suffix, no built-in collision
+    name="Critical-severity must DENY",
+    query_file="ccx_critical_must_deny.cypher",
+    aggregator_role="advisory",                 # or "blocking"
+    severity_for=lambda rows: Severity.HIGH,
+    message_for=lambda rows: f"{len(rows)} violation(s)" if rows else "ok",
+    query_dir=Path(__file__).resolve().parent / "queries",
+))
+```
+
+A user CC must:
+
+- Use a `criterion_id` that matches `^CC-[A-Z0-9][A-Z0-9_-]*$` and does
+  not collide with any built-in. `register_criterion` enforces both at
+  registration time.
+- Express its check in terms of the graph schema documented in
+  `docs/GRAPH_MODEL.md`. New relationship types or labels require a
+  minor-version bump of the contract; see GRAPH_MODEL.md §Versioning.
+- Honour the same `expected_pass = empty result set` convention (rows
+  → FAIL, no rows → PASS). The runner has no other return-shape support.
+
+A complete worked example lives under
+[`examples/custom_cc/`](../examples/custom_cc/) (CC-X1 "Critical-severity
+must DENY"). The library-side API is documented in
+[`INTEGRATION.md`](INTEGRATION.md) §6.
