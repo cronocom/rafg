@@ -1,0 +1,57 @@
+# RAGF Ontology Auditor · Ephemeral sandbox
+#
+# Neo4j 5.26 Community Edition + Graph Data Science (GDS) plugin.
+#
+# GDS is required only by CC-11 (Constraint Centrality), which uses
+# `gds.pageRank.stream` over the SUPERSEDES subgraph to surface base
+# constraints whose edit ripples across many supersessors. The other ten
+# certification criteria are pure Cypher and would run on a community image
+# without plugins; the plugin is loaded unconditionally so that the
+# auditor's behaviour is deterministic regardless of which CCs the caller
+# enables. See docs/decisions/ADR-001-gds-scope.md for the rationale.
+#
+# Designed for local audits only. Every `make up` produces a fresh graph;
+# every `make down` deletes it. No volume persistence by design — the
+# auditor must be reproducible and the sandbox stateless.
+#
+# Ports are bound to 127.0.0.1 so the sandbox never leaves the host.
+# Default credentials are intentionally weak because the container is
+# ephemeral and unreachable from the network. Override via env if needed.
+
+services:
+  neo4j-auditor:
+    image: neo4j:5.26-community
+    container_name: ragf-auditor-neo4j
+    restart: "no"
+    ports:
+      - "127.0.0.1:7474:7474"   # HTTP Browser
+      - "127.0.0.1:7687:7687"   # Bolt
+    environment:
+      NEO4J_AUTH: "neo4j/auditor_local_only"
+      NEO4J_PLUGINS: '["graph-data-science"]'
+      NEO4J_dbms_security_procedures_unrestricted: "gds.*"
+      NEO4J_dbms_security_procedures_allowlist: "gds.*"
+      NEO4J_server_memory_heap_initial__size: "512m"
+      NEO4J_server_memory_heap_max__size: "1G"
+      NEO4J_server_memory_pagecache_size: "512m"
+      NEO4J_dbms_default__database: "neo4j"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          wget --quiet --tries=1 --spider http://localhost:7474 || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    tmpfs:
+      # Force ephemerality: data lives in tmpfs, vanishes on container stop.
+      - /data
+      - /logs
+    networks:
+      - auditor
+
+networks:
+  auditor:
+    driver: bridge
+    name: ragf-auditor-net
