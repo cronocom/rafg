@@ -10,7 +10,7 @@ Restricción: No puede inventar verbos fuera de la ontología.
 
 import asyncio
 import json
-from typing import Literal, Tuple
+from typing import Literal
 
 import anthropic
 import redis.asyncio as redis

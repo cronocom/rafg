@@ -5,7 +5,7 @@ Consultas de KPIs para el dashboard
 ═══════════════════════════════════════════════════════════
 """
 
-from typing import Any, Dict
+from typing import Any
 
 import asyncpg
 import structlog

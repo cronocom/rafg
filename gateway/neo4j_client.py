@@ -10,7 +10,6 @@ Este módulo gestiona la "Autoridad Semántica":
 - Devuelve los validadores requeridos para la acción
 """
 
-from typing import List, Optional
 
 import structlog
 from neo4j import AsyncDriver, AsyncGraphDatabase

@@ -5,7 +5,7 @@ RAGF Demo Engine - Fintech PSD2 Scenarios
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 
 
 @dataclass
