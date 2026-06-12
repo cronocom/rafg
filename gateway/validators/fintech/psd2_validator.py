@@ -27,7 +27,7 @@ class Decision(Enum):
 class ValidationResult:
     """
     Result of a validation check.
-    
+
     Attributes:
         decision: Allow, deny, or escalate
         reason: Human-readable explanation
@@ -40,7 +40,7 @@ class ValidationResult:
     regulatory_ref: str
     remediation: str = ""
     metadata: Optional[Dict[str, Any]] = None
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
@@ -55,26 +55,26 @@ class ValidationResult:
 class PSD2SCAValidator:
     """
     Strong Customer Authentication (SCA) validator.
-    
+
     PSD2 RTS Article 97 requires SCA for:
     - Remote electronic payments
     - Transactions exceeding EUR 30
-    
+
     Attributes:
         threshold_eur: Amount threshold for SCA requirement (default 30.0)
     """
-    
+
     DEFAULT_THRESHOLD_EUR = 30.0
-    
+
     def __init__(self, threshold_eur: float = DEFAULT_THRESHOLD_EUR):
         self.threshold_eur = threshold_eur
-    
+
     def validate(self, action: Dict[str, Any]) -> ValidationResult:
         """Validate if Strong Customer Authentication is required."""
         amount = action.get("amount", 0.0)
         sca_completed = action.get("sca_completed", False)
         tx_type = action.get("transaction_type", "payment")
-        
+
         # SCA not applicable to certain transaction types
         exempt_types = {"inquiry", "balance_check", "card_validation"}
         if tx_type in exempt_types:
@@ -83,7 +83,7 @@ class PSD2SCAValidator:
                 reason=f"SCA exemption: {tx_type} transactions",
                 regulatory_ref="PSD2 RTS (EU) 2018/389 Art. 97"
             )
-        
+
         # Check amount threshold
         if amount > self.threshold_eur:
             if not sca_completed:
@@ -98,7 +98,7 @@ class PSD2SCAValidator:
                         "sca_methods": ["SMS OTP", "Biometric", "Hardware token"]
                     }
                 )
-        
+
         return ValidationResult(
             decision=Decision.ALLOW,
             reason="PSD2 SCA compliance verified",
@@ -108,16 +108,16 @@ class PSD2SCAValidator:
 
 class PSD2LimitValidator:
     """Payment initiation limit validator."""
-    
+
     DEFAULT_LIMIT_EUR = 1000.0
-    
+
     def __init__(self, limit_eur: float = DEFAULT_LIMIT_EUR):
         self.limit_eur = limit_eur
-    
+
     def validate(self, action: Dict[str, Any]) -> ValidationResult:
         """Validate transaction amount against configured limit."""
         amount = action.get("amount", 0.0)
-        
+
         if amount > self.limit_eur:
             return ValidationResult(
                 decision=Decision.ESCALATE,
@@ -130,7 +130,7 @@ class PSD2LimitValidator:
                     "excess": amount - self.limit_eur
                 }
             )
-        
+
         return ValidationResult(
             decision=Decision.ALLOW,
             reason="Amount within autonomous operation limits",
@@ -140,10 +140,10 @@ class PSD2LimitValidator:
 
 class PSD2BeneficiaryValidator:
     """Beneficiary whitelist validator."""
-    
+
     def __init__(self, whitelist: Optional[List[str]] = None):
         self.whitelist = set(whitelist) if whitelist else set()
-    
+
     def validate(self, action: Dict[str, Any]) -> ValidationResult:
         """Validate beneficiary against whitelist."""
         if action.get("beneficiary_whitelisted", False):
@@ -152,9 +152,9 @@ class PSD2BeneficiaryValidator:
                 reason="Beneficiary is pre-approved (whitelisted)",
                 regulatory_ref="Internal Policy - Fraud Prevention"
             )
-        
+
         beneficiary_iban = action.get("beneficiary_iban", "")
-        
+
         if not beneficiary_iban:
             return ValidationResult(
                 decision=Decision.DENY,
@@ -162,7 +162,7 @@ class PSD2BeneficiaryValidator:
                 regulatory_ref="PSD2 - Payment Order Requirements",
                 remediation="Provide valid beneficiary IBAN"
             )
-        
+
         if len(self.whitelist) > 0 and beneficiary_iban not in self.whitelist:
             return ValidationResult(
                 decision=Decision.ESCALATE,
@@ -170,7 +170,7 @@ class PSD2BeneficiaryValidator:
                 regulatory_ref="Internal Policy - Fraud Prevention",
                 remediation="Add beneficiary to whitelist or obtain manual approval"
             )
-        
+
         return ValidationResult(
             decision=Decision.ALLOW,
             reason="Beneficiary validation passed",

@@ -35,13 +35,13 @@ logger = structlog.get_logger()
 class DecisionEngine:
     """
     Motor de decisión que orquesta el Validation Gate.
-    
+
     Secuencia:
     1. Validación semántica (Neo4j)
     2. Si ALLOW → Ejecutar validadores en paralelo
     3. Agregar resultados → Verdict final
     """
-    
+
     def __init__(
         self,
         neo4j_client: Neo4jClient,
@@ -51,42 +51,42 @@ class DecisionEngine:
         self.validation_timeout_ms = validation_timeout_ms
         self.validator_timeout_ms = 150.0  # Presupuesto para validators
         self._health_check_cache = {"healthy": True, "last_check": 0.0}
-    
+
     async def _check_validator_health(self) -> bool:
         """
         Health check del Validation Gate (v2.0 feature).
-        
+
         Verifica:
         - Neo4j responde a pings
         - Cache no se usa si health check falló hace <30s
-        
+
         Returns:
             True si todos los validadores están operacionales
         """
         current_time = time.time()
-        
+
         # Use cache if recent check passed
-        if (self._health_check_cache["healthy"] and 
+        if (self._health_check_cache["healthy"] and
             current_time - self._health_check_cache["last_check"] < 30):
             return True
-        
+
         try:
             # Ping Neo4j using the actual driver API
             if not self.neo4j.driver:
                 raise Exception("Neo4j driver not connected")
-            
+
             async with self.neo4j.driver.session() as session:
                 await asyncio.wait_for(
                     session.run("RETURN 1 AS ping"),
                     timeout=0.5  # 500ms timeout for health check
                 )
-            
+
             self._health_check_cache = {
                 "healthy": True,
                 "last_check": current_time
             }
             return True
-        
+
         except Exception as e:
             logger.warning(
                 "health_check_failed",
@@ -98,7 +98,7 @@ class DecisionEngine:
                 "last_check": current_time
             }
             return False
-    
+
     async def evaluate(
         self,
         action: ActionPrimitive,
@@ -108,24 +108,24 @@ class DecisionEngine:
     ) -> Verdict:
         """
         Evalúa una acción a través del Validation Gate completo.
-        
+
         v2.0 Features:
         - Health check before validation
         - Timeout and error handling on all operations
         - HMAC signature generation
         - Ultimate catch-all fail-closed wrapper
-        
+
         Args:
             action: La acción a validar
             amm_level: Nivel AMM del agente
             trace_id: ID de transacción para auditoría
             agent_id: Identificador del agente (opcional)
-        
+
         Returns:
             Verdict con decisión final (includes HMAC signature)
         """
         start_time = time.perf_counter()
-        
+
         # Ultimate fail-safe: Catch ANY unexpected exception
         try:
             return await self._evaluate_internal(
@@ -140,7 +140,7 @@ class DecisionEngine:
                 error_type=type(e).__name__,
                 verb=action.verb if action else "unknown"
             )
-            
+
             return Verdict(
                 trace_id=trace_id,
                 decision="DENY",
@@ -159,7 +159,7 @@ class DecisionEngine:
                 agent_id=agent_id,
                 signature=""
             )
-    
+
     async def _evaluate_internal(
         self,
         action: ActionPrimitive,
@@ -171,18 +171,18 @@ class DecisionEngine:
         """
         Internal evaluation logic (wrapped by evaluate() for fail-closed safety).
         """
-        
+
         # ═══════════════════════════════════════════════════════
         # v2.0: Health Check (Fail-Closed Pattern)
         # ═══════════════════════════════════════════════════════
-        
+
         if not await self._check_validator_health():
             logger.error(
                 "validation_denied_unhealthy",
                 trace_id=trace_id,
                 reason="Validators unhealthy"
             )
-            
+
             return Verdict(
                 trace_id=trace_id,
                 decision="DENY",
@@ -200,20 +200,20 @@ class DecisionEngine:
                 action=action,
                 agent_id=agent_id
             )
-        
+
         start_time = time.perf_counter()
-        
+
         # ═══════════════════════════════════════════════════════
         # FASE 1: Validación Semántica (Neo4j)
         # ═══════════════════════════════════════════════════════
-        
+
         logger.info(
             "validation_started",
             trace_id=trace_id,
             verb=action.verb,
             amm_level=int(amm_level)
         )
-        
+
         # Semantic validation with timeout and error handling (fail-closed)
         try:
             semantic_verdict = await asyncio.wait_for(
@@ -226,7 +226,7 @@ class DecisionEngine:
                 trace_id=trace_id,
                 timeout_ms=500
             )
-            
+
             return Verdict(
                 trace_id=trace_id,
                 decision="DENY",
@@ -252,7 +252,7 @@ class DecisionEngine:
                 error=str(e),
                 error_type=type(e).__name__
             )
-            
+
             return Verdict(
                 trace_id=trace_id,
                 decision="DENY",
@@ -271,11 +271,11 @@ class DecisionEngine:
                 agent_id=agent_id,
                 signature=""
             )
-        
+
         # Fast rejection: si semántica falla, no ejecutar validadores
         if semantic_verdict.decision == "DENY":
             latency = (time.perf_counter() - start_time) * 1000
-            
+
             verdict = Verdict(
                 trace_id=trace_id,
                 decision="DENY",
@@ -287,26 +287,26 @@ class DecisionEngine:
                 action=action,
                 agent_id=agent_id
             )
-            
+
             logger.info(
                 "validation_denied_semantic",
                 trace_id=trace_id,
                 reason=semantic_verdict.reason,
                 latency_ms=latency
             )
-            
+
             return verdict
-        
+
         # ═══════════════════════════════════════════════════════
         # FASE 2: Obtener Validadores Requeridos
         # ═══════════════════════════════════════════════════════
-        
+
         required_validator_names = await self.neo4j.get_required_validators(action)
-        
+
         if not required_validator_names:
             # No hay validadores → ALLOW directo
             latency = (time.perf_counter() - start_time) * 1000
-            
+
             verdict = Verdict(
                 trace_id=trace_id,
                 decision="ALLOW",
@@ -318,21 +318,21 @@ class DecisionEngine:
                 action=action,
                 agent_id=agent_id
             )
-            
+
             logger.info(
                 "validation_allowed_no_validators",
                 trace_id=trace_id,
                 latency_ms=latency
             )
-            
+
             return verdict
-        
+
         # ═══════════════════════════════════════════════════════
         # FASE 3: Ejecutar Validadores en Paralelo
         # ═══════════════════════════════════════════════════════
-        
+
         validators = [get_validator(name) for name in required_validator_names]
-        
+
         try:
             validator_results = await asyncio.wait_for(
                 asyncio.gather(
@@ -341,7 +341,7 @@ class DecisionEngine:
                 ),
                 timeout=self.validator_timeout_ms / 1000.0
             )
-            
+
             # Convertir excepciones en ValidatorResults
             processed_results: List[ValidatorResult] = []
             for i, result in enumerate(validator_results):
@@ -355,17 +355,17 @@ class DecisionEngine:
                     ))
                 else:
                     processed_results.append(result)
-        
+
         except asyncio.TimeoutError:
             # Timeout crítico → DENY automático
             latency = (time.perf_counter() - start_time) * 1000
-            
+
             logger.error(
                 "validators_timeout",
                 trace_id=trace_id,
                 timeout_ms=self.validator_timeout_ms
             )
-            
+
             # Crear resultados de timeout para todos los validadores
             timeout_results = [
                 ValidatorResult(
@@ -377,7 +377,7 @@ class DecisionEngine:
                 )
                 for v in validators
             ]
-            
+
             verdict = Verdict(
                 trace_id=trace_id,
                 decision="DENY",
@@ -389,21 +389,21 @@ class DecisionEngine:
                 action=action,
                 agent_id=agent_id
             )
-            
+
             return verdict
-        
+
         # ═══════════════════════════════════════════════════════
         # FASE 4: Agregación de Resultados → Decisión Final
         # ═══════════════════════════════════════════════════════
-        
+
         latency = (time.perf_counter() - start_time) * 1000
-        
+
         # Determinar decisión final
         final_decision, final_reason = self._aggregate_decisions(
             semantic_verdict,
             processed_results
         )
-        
+
         verdict = Verdict(
             trace_id=trace_id,
             decision=final_decision,
@@ -415,11 +415,11 @@ class DecisionEngine:
             action=action,
             agent_id=agent_id
         )
-        
+
         # v2.0: Generate HMAC signature for non-repudiation (fail-closed on error)
         try:
             verdict.signature = verdict.compute_signature()
-            
+
             logger.info(
                 "validation_complete",
                 trace_id=trace_id,
@@ -429,9 +429,9 @@ class DecisionEngine:
                 is_certifiable=verdict.is_certifiable,
                 signature=verdict.signature[:16] + "..."  # Log first 16 chars
             )
-            
+
             return verdict
-            
+
         except Exception as e:
             # CRITICAL: Signature generation failed - fail-closed
             logger.critical(
@@ -440,7 +440,7 @@ class DecisionEngine:
                 error=str(e),
                 error_type=type(e).__name__
             )
-            
+
             # Return DENY verdict - cannot guarantee integrity without signature
             return Verdict(
                 trace_id=trace_id,
@@ -460,7 +460,7 @@ class DecisionEngine:
                 agent_id=agent_id,
                 signature=""  # No signature on error
             )
-    
+
     def _aggregate_decisions(
         self,
         semantic_verdict: SemanticVerdict,
@@ -468,34 +468,34 @@ class DecisionEngine:
     ) -> tuple[str, str]:
         """
         Lógica de agregación de veredictos.
-        
+
         Reglas:
         1. Si algún validator FAIL o TIMEOUT → DENY
         2. Si semantic coverage < 1.0 → ESCALATE
         3. Si todos PASS y coverage = 1.0 → ALLOW
-        
+
         Returns:
             (decision: "ALLOW"|"DENY"|"ESCALATE", reason: str)
         """
         # Regla 1: Veto por FAIL o TIMEOUT
         failed_validators = [
-            v for v in validator_results 
+            v for v in validator_results
             if v.decision in ["FAIL", "TIMEOUT"]
         ]
-        
+
         if failed_validators:
             failed_names = [v.validator_name for v in failed_validators]
             violations = [
-                v.rule_violated for v in failed_validators 
+                v.rule_violated for v in failed_validators
                 if v.rule_violated
             ]
-            
+
             reason = f"Validators failed: {', '.join(failed_names)}"
             if violations:
                 reason += f" | Regulations violated: {', '.join(violations)}"
-            
+
             return ("DENY", reason)
-        
+
         # Regla 2: Escalate si cobertura semántica imperfecta
         if semantic_verdict.coverage < 1.0:
             return (
@@ -503,7 +503,7 @@ class DecisionEngine:
                 f"Semantic coverage {semantic_verdict.coverage:.2f} < 1.0 | "
                 f"Human review required for edge case"
             )
-        
+
         # Regla 3: ALLOW si todo pasa
         passed_validators = [v.validator_name for v in validator_results]
         return (

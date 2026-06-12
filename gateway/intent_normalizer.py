@@ -25,13 +25,13 @@ NormalizationMethod = Literal["CLAUDE", "FALLBACK", "CACHE"]
 class IntentNormalizer:
     """
     Normaliza intenciones del usuario en ActionPrimitives.
-    
+
     Arquitectura de 3 capas:
     1. Cache (Redis): Sub-5ms
     2. Claude API: 50-150ms (con timeout)
     3. Fallback determinista: 5-10ms
     """
-    
+
     def __init__(
         self,
         anthropic_api_key: str,
@@ -42,7 +42,7 @@ class IntentNormalizer:
         self.redis = redis_client
         self.timeout_seconds = timeout_ms / 1000.0
         self.cache_ttl = 3600  # 1 hora
-        
+
     async def normalize(
         self,
         prompt: str,
@@ -50,36 +50,36 @@ class IntentNormalizer:
     ) -> Tuple[ActionPrimitive, NormalizationMethod]:
         """
         Normaliza prompt a ActionPrimitive.
-        
+
         Returns:
             (ActionPrimitive, method: "CLAUDE" | "FALLBACK" | "CACHE")
         """
         # 1. Check cache
         cache_key = f"intent:{domain}:{hash(prompt)}"
         cached = await self.redis.get(cache_key)
-        
+
         if cached:
             action = ActionPrimitive.model_validate_json(cached)
             logger.info("intent_normalized", method="CACHE", verb=action.verb)
             return action, "CACHE"
-        
+
         # 2. Try Claude with aggressive timeout
         try:
             action = await asyncio.wait_for(
                 self._call_claude(prompt, domain),
                 timeout=self.timeout_seconds
             )
-            
+
             # Cache success
             await self.redis.setex(
                 cache_key,
                 self.cache_ttl,
                 action.model_dump_json()
             )
-            
+
             logger.info("intent_normalized", method="CLAUDE", verb=action.verb)
             return action, "CLAUDE"
-            
+
         except asyncio.TimeoutError:
             logger.warning(
                 "claude_timeout",
@@ -88,12 +88,12 @@ class IntentNormalizer:
             )
             action = self._fallback_parser(prompt, domain)
             return action, "FALLBACK"
-            
+
         except Exception as e:
             logger.error("claude_error", error=str(e), falling_back=True)
             action = self._fallback_parser(prompt, domain)
             return action, "FALLBACK"
-    
+
     async def _call_claude(
         self,
         prompt: str,
@@ -101,7 +101,7 @@ class IntentNormalizer:
     ) -> ActionPrimitive:
         """
         Llama a Claude 3.5 Sonnet para normalización semántica.
-        
+
         Prompt Engineering:
         - Few-shot examples
         - Strict JSON schema
@@ -154,34 +154,34 @@ Now process this user request:"""
                 "content": prompt
             }]
         )
-        
+
         # Extraer JSON de la respuesta
         content = response.content[0].text.strip()
-        
+
         # Limpiar markdown si existe
         if content.startswith("```json"):
             content = content.split("```json")[1].split("```")[0].strip()
         elif content.startswith("```"):
             content = content.split("```")[1].split("```")[0].strip()
-        
+
         try:
             data = json.loads(content)
             action = ActionPrimitive(**data)
-            
+
             # Validar que no sea unknown_action
             if action.verb == "unknown_action":
                 raise SemanticDriftError(action.verb, domain)
-            
+
             return action
-            
+
         except json.JSONDecodeError as e:
             logger.error("claude_invalid_json", content=content, error=str(e))
             raise
-    
+
     def _fallback_parser(self, prompt: str, domain: str) -> ActionPrimitive:
         """
         Parser determinista basado en reglas para cuando Claude falla.
-        
+
         Limitado pero confiable. Busca keywords:
         - "reroute" → reroute_flight
         - "altitude" → adjust_altitude
@@ -189,7 +189,7 @@ Now process this user request:"""
         - "weather" → query_weather
         """
         prompt_lower = prompt.lower()
-        
+
         # Reglas simples
         if "reroute" in prompt_lower or "re-route" in prompt_lower:
             verb = "reroute_flight"
@@ -199,32 +199,32 @@ Now process this user request:"""
             resource = f"flight:{match.group(1)}" if match else "flight:UNKNOWN"
             params = {"reason": "unspecified"}
             confidence = 0.6
-            
+
         elif "altitude" in prompt_lower:
             verb = "adjust_altitude"
             resource = "flight:UNKNOWN"
             params = {}
             confidence = 0.5
-            
+
         elif "maintenance" in prompt_lower:
             verb = "schedule_maintenance"
             resource = "aircraft:UNKNOWN"
             params = {}
             confidence = 0.5
-            
+
         elif "weather" in prompt_lower:
             verb = "query_weather"
             resource = "route:UNKNOWN"
             params = {}
             confidence = 0.7
-            
+
         else:
             # No pudimos parsearlo
             verb = "unknown_action"
             resource = "unknown"
             params = {"raw_prompt": prompt}
             confidence = 0.1
-        
+
         action = ActionPrimitive(
             verb=verb,
             resource=resource,
@@ -232,12 +232,12 @@ Now process this user request:"""
             domain=domain,
             confidence=confidence
         )
-        
+
         logger.warning(
             "fallback_parser_used",
             verb=verb,
             confidence=confidence,
             prompt=prompt[:50]
         )
-        
+
         return action

@@ -14,7 +14,7 @@ from gateway.main import app
 async def test_full_validation_flow_allow():
     """
     Test integración completa: Request HTTP → Validation → Response
-    
+
     Escenario: Reroute válido
     """
     async with AsyncClient(app=app, base_url="http://test") as client:
@@ -26,17 +26,17 @@ async def test_full_validation_flow_allow():
                 "agent_id": "test-integration-agent"
             }
         )
-    
+
     assert response.status_code == 200
-    
+
     data = response.json()
-    
+
     assert "verdict" in data
     assert "trace_id" in data
     assert "is_certifiable" in data
-    
+
     verdict = data["verdict"]
-    
+
     # Validaciones básicas
     assert verdict["decision"] in ["ALLOW", "DENY", "ESCALATE"]
     assert verdict["amm_level"] == 3
@@ -49,9 +49,9 @@ async def test_health_endpoint():
     """Test health check endpoint"""
     async with AsyncClient(app=app, base_url="http://test") as client:
         response = await client.get("/health")
-    
+
     assert response.status_code == 200
     data = response.json()
-    
+
     assert data["status"] == "healthy"
     assert "version" in data

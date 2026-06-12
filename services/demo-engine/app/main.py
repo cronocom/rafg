@@ -94,12 +94,12 @@ async def validate_scenario(request: ValidationRequest):
         scenario = get_scenario(request.scenario_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    
+
     # Measure validation time
     start_time = time.time()
     result = validation_engine.validate(scenario.action)
     latency_ms = (time.time() - start_time) * 1000
-    
+
     return ValidationResponse(
         scenario_id=scenario.id,
         decision=result.decision.value,

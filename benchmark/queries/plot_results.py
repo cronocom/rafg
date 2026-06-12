@@ -27,8 +27,8 @@ fig, ax = plt.subplots(figsize=(11, 5.5))
 fig.patch.set_facecolor('white')
 
 queries   = ["q1_simple", "q2_medium", "q3_complex", "q4_deny", "q5_hallucin"]
-labels    = ["Q1\nExistence\n(1 reg)", "Q2\nPayment\n(1 reg+2c)", 
-             "Q3\nFraud Override\n(3 regs+2c)", "Q4\nAMM Deny\n(level insuf.)", 
+labels    = ["Q1\nExistence\n(1 reg)", "Q2\nPayment\n(1 reg+2c)",
+             "Q3\nFraud Override\n(3 regs+2c)", "Q4\nAMM Deny\n(level insuf.)",
              "Q5\nHallucination\n(verb ∉ ontology)"]
 
 x     = np.arange(len(queries))

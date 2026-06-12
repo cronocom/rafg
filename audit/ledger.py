@@ -17,11 +17,11 @@ logger = structlog.get_logger()
 class AuditLedger:
     """
     Cliente para escribir en el audit log de TimescaleDB.
-    
+
     CRÍTICO: Si la escritura falla, la acción NO se ejecuta.
     Sin auditoría = Sin certificación.
     """
-    
+
     def __init__(
         self,
         host: str,
@@ -36,7 +36,7 @@ class AuditLedger:
         self.user = user
         self.password = password
         self.pool: asyncpg.Pool | None = None
-    
+
     async def connect(self):
         """Crear connection pool"""
         self.pool = await asyncpg.create_pool(
@@ -49,23 +49,23 @@ class AuditLedger:
             max_size=10
         )
         logger.info("audit_ledger_connected", database=self.database)
-    
+
     async def close(self):
         """Cerrar connection pool"""
         if self.pool:
             await self.pool.close()
             logger.info("audit_ledger_disconnected")
-    
+
     async def write(self, verdict: Verdict) -> bool:
         """
         Escribe un veredicto en el audit log.
-        
+
         Args:
             verdict: El veredicto a auditar
-        
+
         Returns:
             True si se escribió correctamente
-        
+
         Raises:
             AuditWriteError si falla la escritura
         """
@@ -74,7 +74,7 @@ class AuditLedger:
                 verdict.trace_id,
                 "Audit ledger not connected"
             )
-        
+
         query = """
         INSERT INTO audit_log (
             trace_id,
@@ -99,7 +99,7 @@ class AuditLedger:
             $11, $12, $13, $14, $15, $16, $17
         )
         """
-        
+
         try:
             async with self.pool.acquire() as conn:
                 await conn.execute(
@@ -122,16 +122,16 @@ class AuditLedger:
                     verdict.is_certifiable,
                     {}  # metadata adicional
                 )
-            
+
             logger.info(
                 "audit_written",
                 trace_id=verdict.trace_id,
                 decision=verdict.decision,
                 is_certifiable=verdict.is_certifiable
             )
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(
                 "audit_write_failed",

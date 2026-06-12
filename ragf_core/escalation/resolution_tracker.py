@@ -109,7 +109,7 @@ class ResolutionAnalyzer:
     def inter_operator_consistency(self) -> Dict:
         """
         Measure agreement between operators on the same cases
-        
+
         Each operator independently reviews the same set of escalations.
         We measure agreement rate across all shared cases.
 
@@ -129,7 +129,7 @@ class ResolutionAnalyzer:
 
         # Compare operators pairwise
         comparisons = []
-        
+
         for i, op_a in enumerate(operators):
             for op_b in operators[i + 1:]:
                 agreements = 0
@@ -139,7 +139,7 @@ class ResolutionAnalyzer:
                 for esc_id in escalation_ids:
                     res_a = by_case_and_operator.get((esc_id, op_a))
                     res_b = by_case_and_operator.get((esc_id, op_b))
-                    
+
                     # Only compare if both operators reviewed this case
                     if res_a and res_b:
                         total_comparable += 1
@@ -198,7 +198,7 @@ class ResolutionSimulator:
     1. Actual escalation records from validation logs
     2. Realistic time distributions from aviation/healthcare literature
     3. Operator consistency patterns from domain studies
-    
+
     CRITICAL UPDATE v2.3.1: Multi-operator independent review
     - Each operator reviews ALL cases independently
     - 10-12% disagreement on boundary cases (literature-based)
@@ -234,10 +234,10 @@ class ResolutionSimulator:
     ) -> List[EscalationResolution]:
         """
         Generate plausible resolution records from escalation logs
-        
+
         CRITICAL: Each operator independently reviews ALL cases
         This creates realistic inter-operator consistency measurement
-        
+
         Args:
             escalation_logs: Actual ESCALATE verdicts from validation
             num_operators: Number of independent operators
@@ -249,13 +249,13 @@ class ResolutionSimulator:
 
         import random
         import numpy as np
-        
+
         # Set random seed for reproducibility
         random.seed(random_seed)
         np.random.seed(random_seed)
 
         profile = self.time_profiles[self.domain]
-        
+
         # Operator profiles
         operators = [
             {
@@ -265,7 +265,7 @@ class ResolutionSimulator:
                 "speed_factor": 0.8
             },
             {
-                "id": "operator_01", 
+                "id": "operator_01",
                 "experience": "mid",
                 "boundary_deviation_prob": 0.12,  # 12% deviation
                 "speed_factor": 1.0
@@ -287,23 +287,23 @@ class ResolutionSimulator:
                 # Base decision (deterministic from case characteristics)
                 base_outcome = self._determine_outcome(log)
                 reason = log.get("reason", "").lower()
-                
+
                 # Apply operator-specific deviation ONLY on boundary cases
                 final_outcome = base_outcome
                 is_boundary = ("near boundary" in reason or "marginal" in reason)
-                
+
                 if is_boundary and random.random() < operator["boundary_deviation_prob"]:
                     # Boundary cases: flip between exception and deny
                     if base_outcome == ResolutionOutcome.APPROVED_EXCEPTION:
                         final_outcome = ResolutionOutcome.DENIED_MAINTAINED
                     elif base_outcome == ResolutionOutcome.DENIED_MAINTAINED:
                         final_outcome = ResolutionOutcome.APPROVED_EXCEPTION
-                
+
                 # Resolution time (operator-specific)
                 base_time = int(np.random.normal(profile["mean_ms"], profile["std_ms"]))
                 time_ms = int(base_time * operator["speed_factor"])
                 time_ms = max(profile["min_ms"], min(profile["max_ms"], time_ms))
-                
+
                 # New rule creation (only for APPROVED_NEW_RULE outcomes)
                 new_rule_id = None
                 if final_outcome == ResolutionOutcome.APPROVED_NEW_RULE:
@@ -343,7 +343,7 @@ class ResolutionSimulator:
                 return ResolutionOutcome.APPROVED_NEW_RULE
             else:
                 return ResolutionOutcome.APPROVED_EXCEPTION
-                
+
         elif "novel scenario" in reason:
             # Novel scenarios -> new rule (70% of novel cases)
             hash_val = hash(log.get("escalation_id", "")) % 100

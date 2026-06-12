@@ -76,7 +76,7 @@ async def test_neo4j_connection_failure(decision_engine, test_action, mock_neo4j
     """
     # Setup: Neo4j driver disconnected
     mock_neo4j.driver = None
-    
+
     # Execute
     verdict = await decision_engine.evaluate(
         action=test_action,
@@ -84,14 +84,14 @@ async def test_neo4j_connection_failure(decision_engine, test_action, mock_neo4j
         trace_id="test-neo4j-down",
         agent_id="test-agent"
     )
-    
+
     # Assert: DENY verdict
     assert verdict.decision == "DENY", "Neo4j down should result in DENY"
     assert "VALIDATOR_UNHEALTHY" in verdict.reason or "Neo4j" in verdict.reason
     assert verdict.semantic_verdict.decision == "DENY"
     assert verdict.semantic_verdict.coverage == 0.0
     assert len(verdict.validator_results) == 0
-    
+
     print(f"✅ TEST PASSED: Neo4j down → DENY")
     print(f"   Reason: {verdict.reason}")
 
@@ -112,7 +112,7 @@ async def test_neo4j_query_timeout(decision_engine, test_action, mock_neo4j):
     mock_session = AsyncMock()
     mock_session.run = AsyncMock(return_value=Mock())
     mock_neo4j.driver.session = MagicMock(return_value=mock_session)
-    
+
     # Setup: Semantic validation times out
     async def slow_validation(*args, **kwargs):
         await asyncio.sleep(1.0)  # 1000ms > 500ms timeout
@@ -123,9 +123,9 @@ async def test_neo4j_query_timeout(decision_engine, test_action, mock_neo4j):
             amm_authorized=True,
             coverage=1.0
         )
-    
+
     mock_neo4j.validate_semantic_authority = slow_validation
-    
+
     # Execute
     verdict = await decision_engine.evaluate(
         action=test_action,
@@ -133,13 +133,13 @@ async def test_neo4j_query_timeout(decision_engine, test_action, mock_neo4j):
         trace_id="test-neo4j-timeout",
         agent_id="test-agent"
     )
-    
+
     # Assert: DENY verdict
     assert verdict.decision == "DENY", "Neo4j timeout should result in DENY"
     assert "TIMEOUT" in verdict.reason or "timeout" in verdict.reason.lower()
     assert verdict.semantic_verdict.decision == "DENY"
     assert verdict.semantic_verdict.coverage == 0.0
-    
+
     print(f"✅ TEST PASSED: Neo4j timeout → DENY")
     print(f"   Reason: {verdict.reason}")
 
@@ -160,13 +160,13 @@ async def test_neo4j_query_exception(decision_engine, test_action, mock_neo4j):
     mock_session = AsyncMock()
     mock_session.run = AsyncMock(return_value=Mock())
     mock_neo4j.driver.session = MagicMock(return_value=mock_session)
-    
+
     # Setup: Semantic validation raises exception
     async def failing_validation(*args, **kwargs):
         raise Exception("Neo4j connection lost during query")
-    
+
     mock_neo4j.validate_semantic_authority = failing_validation
-    
+
     # Execute
     verdict = await decision_engine.evaluate(
         action=test_action,
@@ -174,12 +174,12 @@ async def test_neo4j_query_exception(decision_engine, test_action, mock_neo4j):
         trace_id="test-neo4j-exception",
         agent_id="test-agent"
     )
-    
+
     # Assert: DENY verdict
     assert verdict.decision == "DENY", "Neo4j exception should result in DENY"
     assert "ERROR" in verdict.reason or "error" in verdict.reason.lower()
     assert verdict.semantic_verdict.decision == "DENY"
-    
+
     print(f"✅ TEST PASSED: Neo4j exception → DENY")
     print(f"   Reason: {verdict.reason}")
 
@@ -204,7 +204,7 @@ async def test_signature_generation_failure(decision_engine, test_action, mock_n
     WHEN: evaluate() is called
     THEN: Verdict.decision = "DENY"
           Reason contains "SIGNATURE_GENERATION_FAILED"
-    
+
     NOTE: This test is skipped in automated runs due to mocking complexity.
     The fail-closed behavior on signature errors is guaranteed by:
     - try/except wrapper in decision_engine.py lines 312-348
@@ -230,7 +230,7 @@ async def test_validator_exception(decision_engine, test_action, mock_neo4j):
     mock_session = AsyncMock()
     mock_session.run = AsyncMock(return_value=Mock())
     mock_neo4j.driver.session = MagicMock(return_value=mock_session)
-    
+
     # Setup: Semantic validation succeeds
     mock_neo4j.validate_semantic_authority = AsyncMock(
         return_value=SemanticVerdict(
@@ -241,21 +241,21 @@ async def test_validator_exception(decision_engine, test_action, mock_neo4j):
             coverage=1.0
         )
     )
-    
+
     # Setup: Validator required
     mock_neo4j.get_required_validators = AsyncMock(
         return_value=["test_validator"]
     )
-    
+
     # Setup: Validator raises exception
     mock_validator = Mock()
     mock_validator.name = "test_validator"
-    
+
     async def failing_validate(*args, **kwargs):
         raise Exception("Validator internal error")
-    
+
     mock_validator.validate = failing_validate
-    
+
     # Execute with patched get_validator
     with patch("gateway.decision_engine.get_validator", return_value=mock_validator):
         verdict = await decision_engine.evaluate(
@@ -264,16 +264,16 @@ async def test_validator_exception(decision_engine, test_action, mock_neo4j):
             trace_id="test-validator-exception",
             agent_id="test-agent"
         )
-    
+
     # Assert: DENY verdict (validator exception converted to FAIL)
     assert verdict.decision == "DENY", "Validator exception should result in DENY"
     assert len(verdict.validator_results) > 0, "Should have validator result"
-    
+
     # Check that exception was converted to FAIL result
     validator_result = verdict.validator_results[0]
     assert validator_result.decision == "FAIL", "Exception should convert to FAIL"
     assert "exception" in validator_result.reason.lower()
-    
+
     print(f"✅ TEST PASSED: Validator exception → DENY")
     print(f"   Validator result: {validator_result.decision}")
     print(f"   Reason: {validator_result.reason}")
@@ -296,13 +296,13 @@ async def test_ultimate_catch_all(decision_engine, test_action, mock_neo4j):
     mock_session = AsyncMock()
     mock_session.run = AsyncMock(return_value=Mock())
     mock_neo4j.driver.session = MagicMock(return_value=mock_session)
-    
+
     # Setup: Completely unexpected exception
     async def catastrophic_failure(*args, **kwargs):
         raise RuntimeError("Unexpected system error - this should never happen")
-    
+
     mock_neo4j.validate_semantic_authority = catastrophic_failure
-    
+
     # Execute
     verdict = await decision_engine.evaluate(
         action=test_action,
@@ -310,11 +310,11 @@ async def test_ultimate_catch_all(decision_engine, test_action, mock_neo4j):
         trace_id="test-ultimate-catchall",
         agent_id="test-agent"
     )
-    
+
     # Assert: DENY verdict (caught by ultimate wrapper)
     assert verdict.decision == "DENY", "Unexpected exception should result in DENY"
     assert "ERROR" in verdict.reason or "error" in verdict.reason.lower()
-    
+
     print(f"✅ TEST PASSED: Ultimate catch-all → DENY")
     print(f"   Reason: {verdict.reason}")
 
@@ -335,11 +335,11 @@ async def test_health_check_timeout(decision_engine, test_action, mock_neo4j):
     async def slow_ping(*args, **kwargs):
         await asyncio.sleep(1.0)  # 1000ms > 500ms timeout
         return Mock()
-    
+
     mock_session = AsyncMock()
     mock_session.run = slow_ping
     mock_neo4j.driver.session = MagicMock(return_value=mock_session)
-    
+
     # Execute
     verdict = await decision_engine.evaluate(
         action=test_action,
@@ -347,10 +347,10 @@ async def test_health_check_timeout(decision_engine, test_action, mock_neo4j):
         trace_id="test-health-timeout",
         agent_id="test-agent"
     )
-    
+
     # Assert: DENY verdict
     assert verdict.decision == "DENY", "Health check timeout should result in DENY"
-    
+
     print(f"✅ TEST PASSED: Health check timeout → DENY")
     print(f"   Reason: {verdict.reason}")
 
@@ -363,11 +363,11 @@ async def test_health_check_timeout(decision_engine, test_action, mock_neo4j):
 async def test_fail_closed_coverage_matrix():
     """
     Comprehensive test: Verify all failure modes result in DENY
-    
+
     This is the formal verification of the fail-closed property:
         ∀ failure ∈ FailureModes: evaluate() → DENY
     """
-    
+
     test_results = {
         "neo4j_down": False,
         "neo4j_timeout": False,
@@ -377,11 +377,11 @@ async def test_fail_closed_coverage_matrix():
         "unexpected_error": False,
         "health_timeout": False
     }
-    
+
     # Run all tests
     # (Individual tests already verify each mode)
     # This is just a summary
-    
+
     print("\n" + "="*60)
     print("FAIL-CLOSED COVERAGE MATRIX")
     print("="*60)
@@ -395,7 +395,7 @@ async def test_fail_closed_coverage_matrix():
     print("="*60)
     print(f"FORMAL PROPERTY VERIFIED: ∀ failure → DENY ✅")
     print("="*60)
-    
+
     # All tests passed if we get here
     assert True, "All failure modes result in DENY"
 
@@ -404,7 +404,7 @@ if __name__ == "__main__":
     """
     Run tests directly:
         python -m pytest tests/integration/test_failure_modes.py -v
-    
+
     Expected output:
         ✅ All tests pass
         ✅ 100% fail-closed coverage proven

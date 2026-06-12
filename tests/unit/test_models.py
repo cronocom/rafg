@@ -25,7 +25,7 @@ def test_action_primitive_valid():
         domain="aviation",
         confidence=0.95
     )
-    
+
     assert action.verb == "reroute_flight"
     assert action.domain == "aviation"
     assert action.confidence == 0.95
@@ -72,7 +72,7 @@ def test_verdict_is_certifiable_true():
         amm_authorized=True,
         coverage=1.0
     )
-    
+
     validator_results = [
         ValidatorResult(
             validator_name="FuelReserveValidator",
@@ -81,14 +81,14 @@ def test_verdict_is_certifiable_true():
             latency_ms=45.0
         )
     ]
-    
+
     action = ActionPrimitive(
         verb="reroute_flight",
         resource="flight:IB3202",
         parameters={},
         domain="aviation"
     )
-    
+
     verdict = Verdict(
         trace_id="test-001",
         decision="ALLOW",
@@ -99,7 +99,7 @@ def test_verdict_is_certifiable_true():
         total_latency_ms=150.0,
         action=action
     )
-    
+
     assert verdict.is_certifiable is True
 
 
@@ -112,7 +112,7 @@ def test_verdict_is_certifiable_false_high_latency():
         amm_authorized=True,
         coverage=1.0
     )
-    
+
     validator_results = [
         ValidatorResult(
             validator_name="FuelReserveValidator",
@@ -121,14 +121,14 @@ def test_verdict_is_certifiable_false_high_latency():
             latency_ms=45.0
         )
     ]
-    
+
     action = ActionPrimitive(
         verb="reroute_flight",
         resource="flight:IB3202",
         parameters={},
         domain="aviation"
     )
-    
+
     verdict = Verdict(
         trace_id="test-002",
         decision="ALLOW",
@@ -139,7 +139,7 @@ def test_verdict_is_certifiable_false_high_latency():
         total_latency_ms=250.0,  # ❌ > 200ms
         action=action
     )
-    
+
     assert verdict.is_certifiable is False
 
 
@@ -152,7 +152,7 @@ def test_verdict_is_certifiable_false_validator_fail():
         amm_authorized=True,
         coverage=1.0
     )
-    
+
     validator_results = [
         ValidatorResult(
             validator_name="FuelReserveValidator",
@@ -162,14 +162,14 @@ def test_verdict_is_certifiable_false_validator_fail():
             rule_violated="FAA-14-CFR-91.151"
         )
     ]
-    
+
     action = ActionPrimitive(
         verb="reroute_flight",
         resource="flight:IB3202",
         parameters={},
         domain="aviation"
     )
-    
+
     verdict = Verdict(
         trace_id="test-003",
         decision="DENY",
@@ -180,5 +180,5 @@ def test_verdict_is_certifiable_false_validator_fail():
         total_latency_ms=150.0,
         action=action
     )
-    
+
     assert verdict.is_certifiable is False

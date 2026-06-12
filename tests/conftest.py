@@ -29,16 +29,16 @@ os.environ["ANTHROPIC_API_KEY"] = os.getenv("ANTHROPIC_API_KEY", "test-key")
 async def neo4j_client():
     """Neo4j client fixture - usando pytest_asyncio.fixture"""
     from gateway.neo4j_client import Neo4jClient
-    
+
     client = Neo4jClient(
         uri=os.getenv("NEO4J_URI"),
         user=os.getenv("NEO4J_USER"),
         password=os.getenv("NEO4J_PASSWORD")
     )
     await client.connect()
-    
+
     yield client
-    
+
     await client.close()
 
 
@@ -46,16 +46,16 @@ async def neo4j_client():
 async def redis_client():
     """Redis client fixture"""
     import redis.asyncio as redis
-    
+
     client = redis.Redis(
         host=os.getenv("REDIS_HOST"),
         port=int(os.getenv("REDIS_PORT")),
         password=os.getenv("REDIS_PASSWORD"),
         decode_responses=True
     )
-    
+
     yield client
-    
+
     await client.close()
 
 
@@ -63,7 +63,7 @@ async def redis_client():
 def sample_action():
     """Sample ActionPrimitive for testing"""
     from shared.models import ActionPrimitive
-    
+
     return ActionPrimitive(
         verb="reroute_flight",
         resource="flight:IB3202",

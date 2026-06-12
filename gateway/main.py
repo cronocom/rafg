@@ -91,14 +91,14 @@ app_state = AppState()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Gestión del ciclo de vida de la aplicación"""
-    
+
     # STARTUP
     logger.info("ragf_starting", environment=ENVIRONMENT)
-    
+
     # Conectar Neo4j
     app_state.neo4j_client = Neo4jClient(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
     await app_state.neo4j_client.connect()
-    
+
     # Conectar Redis
     app_state.redis_client = redis.Redis(
         host=REDIS_HOST,
@@ -108,7 +108,7 @@ async def lifespan(app: FastAPI):
     )
     await app_state.redis_client.ping()
     logger.info("redis_connected")
-    
+
     # Conectar Audit Ledger
     app_state.audit_ledger = AuditLedger(
         host=POSTGRES_HOST,
@@ -118,32 +118,32 @@ async def lifespan(app: FastAPI):
         password=POSTGRES_PASSWORD
     )
     await app_state.audit_ledger.connect()
-    
+
     # Inicializar componentes
     app_state.intent_normalizer = IntentNormalizer(
         anthropic_api_key=ANTHROPIC_API_KEY or "",
         redis_client=app_state.redis_client,
         timeout_ms=100.0
     )
-    
+
     app_state.decision_engine = DecisionEngine(
         neo4j_client=app_state.neo4j_client,
         validation_timeout_ms=VALIDATION_TIMEOUT_MS
     )
-    
+
     app_state.audit_metrics = AuditMetrics(app_state.audit_ledger.pool)
-    
+
     logger.info("ragf_started")
-    
+
     yield
-    
+
     # SHUTDOWN
     logger.info("ragf_shutting_down")
-    
+
     await app_state.neo4j_client.close()
     await app_state.redis_client.close()
     await app_state.audit_ledger.close()
-    
+
     logger.info("ragf_stopped")
 
 
@@ -189,35 +189,35 @@ async def validate_action(
 ):
     """
     ENDPOINT PRINCIPAL: Valida una acción del agente.
-    
+
     Flujo completo:
     1. Intent Normalization (Claude)
     2. Semantic Validation (Neo4j)
     3. Independent Validators (Safety)
     4. Audit Log (TimescaleDB)
-    
+
     Returns:
         ValidationResponse con veredicto final
     """
     trace_id = x_trace_id or str(uuid.uuid4())
-    
+
     logger.info(
         "validation_request_received",
         trace_id=trace_id,
         amm_level=int(request.agent_amm_level),
         prompt=request.prompt[:100]
     )
-    
+
     try:
         # ═══════════════════════════════════════════════════════
         # PASO 1: Intent Normalization
         # ═══════════════════════════════════════════════════════
-        
+
         action, normalization_method = await app_state.intent_normalizer.normalize(
             prompt=request.prompt,
             domain="aviation"  # Hardcoded para MVA
         )
-        
+
         logger.info(
             "intent_normalized",
             trace_id=trace_id,
@@ -225,34 +225,34 @@ async def validate_action(
             method=normalization_method,
             confidence=action.confidence
         )
-        
+
         # ═══════════════════════════════════════════════════════
         # PASO 2: Decision Engine (Semantic + Validators)
         # ═══════════════════════════════════════════════════════
-        
+
         verdict = await app_state.decision_engine.evaluate(
             action=action,
             amm_level=request.agent_amm_level,
             trace_id=trace_id,
             agent_id=request.agent_id
         )
-        
+
         # ═══════════════════════════════════════════════════════
         # PASO 3: Audit Log (CRÍTICO)
         # ═══════════════════════════════════════════════════════
-        
+
         await app_state.audit_ledger.write(verdict)
-        
+
         # ═══════════════════════════════════════════════════════
         # PASO 4: Response
         # ═══════════════════════════════════════════════════════
-        
+
         response = ValidationResponse(
             verdict=verdict,
             trace_id=trace_id,
             is_certifiable=verdict.is_certifiable
         )
-        
+
         logger.info(
             "validation_request_completed",
             trace_id=trace_id,
@@ -260,9 +260,9 @@ async def validate_action(
             latency_ms=verdict.total_latency_ms,
             is_certifiable=verdict.is_certifiable
         )
-        
+
         return response
-    
+
     except Exception as e:
         logger.error(
             "validation_request_failed",
@@ -277,7 +277,7 @@ async def validate_action(
 async def get_dashboard_metrics():
     """
     Obtiene KPIs principales para el dashboard.
-    
+
     Returns:
         Dict con métricas clave
     """
@@ -293,10 +293,10 @@ async def get_dashboard_metrics():
 async def get_mttv(hours: int = 24):
     """
     Mean Time To Validation (p95).
-    
+
     Args:
         hours: Ventana de tiempo (default: 24h)
-    
+
     Returns:
         MTTV en milisegundos
     """
@@ -312,10 +312,10 @@ async def get_mttv(hours: int = 24):
 async def get_pass_rate(amm_level: int | None = None):
     """
     Validation Pass Rate (últimas 24h).
-    
+
     Args:
         amm_level: Filtrar por nivel AMM (opcional)
-    
+
     Returns:
         Pass rate como porcentaje
     """

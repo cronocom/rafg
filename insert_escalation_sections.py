@@ -27,12 +27,12 @@ if marker in paper_content:
         escalation_text + '\n' + marker,
         1  # Replace only first occurrence
     )
-    
+
     print("✅ Inserted escalation analysis sections before 'State Complexity and Consistency'")
 else:
     print("⚠️  Could not find 'State Complexity and Consistency' marker")
     print("   Searching for alternative markers...")
-    
+
     # Try alternative markers
     if '\\subsection{Operational Sustainability}' in paper_content:
         marker = '\\subsection{Operational Sustainability}'

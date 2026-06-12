@@ -35,7 +35,7 @@ class ActionPrimitive(BaseModel):
     Toda acción del agente DEBE ser destilada a este formato.
     """
     verb: str = Field(
-        ..., 
+        ...,
         description="Acción en infinitivo (ej: 'reroute_flight', 'prescribe_medication')",
         min_length=3,
         max_length=50
@@ -61,7 +61,7 @@ class ActionPrimitive(BaseModel):
         le=1.0,
         description="Confianza del LLM en la interpretación (0-1)"
     )
-    
+
     @field_validator('verb')
     @classmethod
     def verb_must_be_lowercase(cls, v: str) -> str:
@@ -103,7 +103,7 @@ class Verdict(BaseModel):
     """
     Veredicto final del Validation Gate.
     Este es el objeto que se audita en TimescaleDB.
-    
+
     v2.0 Features:
     - HMAC-SHA256 signature for non-repudiation
     - Semantic coverage metric (0-1)
@@ -112,25 +112,25 @@ class Verdict(BaseModel):
     decision: Literal["ALLOW", "DENY", "ESCALATE"]
     reason: str
     amm_level: AMMLevel
-    
+
     # Desglose de cobertura
     semantic_verdict: SemanticVerdict
     validator_results: list[ValidatorResult] = Field(default_factory=list)
-    
+
     # Métricas
     total_latency_ms: float = Field(..., ge=0)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    
+
     # Contexto para auditoría
     action: ActionPrimitive
     agent_id: Optional[str] = None
-    
+
     # v2.0: Cryptographic signature
     signature: str = Field(
         default="",
         description="HMAC-SHA256 signature for non-repudiation"
     )
-    
+
     @property
     def is_certifiable(self) -> bool:
         """
@@ -146,23 +146,23 @@ class Verdict(BaseModel):
             and all(v.decision == "PASS" for v in self.validator_results)
             and self.total_latency_ms <= 200
         )
-    
+
     def compute_signature(self) -> str:
         """
         Genera firma HMAC-SHA256 del veredicto (v2.0 feature).
-        
+
         Design Rationale:
             La firma permite verificar que el veredicto no ha sido
             manipulado post-emisión (non-repudiation).
-        
+
         Security Model (v2.0):
             - Secret key stored in RAGF_SIGNATURE_SECRET environment variable
             - Production: Migrate to KMS (AWS Secrets Manager, HashiCorp Vault)
             - Key rotation: 90-day policy recommended (future work)
-        
+
         Returns:
             Hex digest de 64 caracteres
-            
+
         Raises:
             ValueError: If RAGF_SIGNATURE_SECRET is not configured
         """
@@ -172,7 +172,7 @@ class Verdict(BaseModel):
                 "RAGF_SIGNATURE_SECRET environment variable is required. "
                 "Generate with: openssl rand -hex 32"
             )
-        
+
         payload = json.dumps({
             "trace_id": self.trace_id,
             "decision": self.decision,
@@ -181,20 +181,20 @@ class Verdict(BaseModel):
             "timestamp": self.timestamp.isoformat(),
             "semantic_coverage": self.semantic_verdict.coverage
         }, sort_keys=True)
-        
+
         return hmac.new(
             secret_key.encode(),
             payload.encode(),
             hashlib.sha256
         ).hexdigest()
-    
+
     def verify_signature(self) -> bool:
         """
         Verifica la integridad del veredicto.
-        
+
         Returns:
             True si la firma es válida, False si fue manipulada
-            
+
         Raises:
             ValueError: If RAGF_SIGNATURE_SECRET is not configured
         """
@@ -202,7 +202,7 @@ class Verdict(BaseModel):
             return False
         expected = self.compute_signature()
         return hmac.compare_digest(self.signature, expected)
-    
+
     @property
     def semantic_coverage(self) -> float:
         """Alias para acceso rápido a cobertura semántica"""

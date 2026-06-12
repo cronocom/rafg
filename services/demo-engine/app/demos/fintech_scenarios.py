@@ -35,7 +35,7 @@ FINTECH_SCENARIOS = [
         expected_outcome="ALLOW",
         teaching_point="Amount below SCA threshold (EUR 30) and beneficiary approved"
     ),
-    
+
     DemoScenario(
         id="ft_002",
         title="⚠️ SCA Required - EUR 350",
@@ -51,7 +51,7 @@ FINTECH_SCENARIOS = [
         expected_outcome="ESCALATE",
         teaching_point="PSD2 requires Strong Customer Authentication for amounts >EUR 30"
     ),
-    
+
     DemoScenario(
         id="ft_003",
         title="🚨 High Amount - EUR 5,000",
@@ -67,7 +67,7 @@ FINTECH_SCENARIOS = [
         expected_outcome="ESCALATE",
         teaching_point="Amount exceeds EUR 1,000 limit - requires human approval"
     ),
-    
+
     DemoScenario(
         id="ft_004",
         title="💰 AML Threshold - EUR 12,000",
@@ -83,7 +83,7 @@ FINTECH_SCENARIOS = [
         expected_outcome="ESCALATE",
         teaching_point="5AMLD Article 11: Amounts ≥EUR 10,000 require enhanced due diligence"
     ),
-    
+
     DemoScenario(
         id="ft_005",
         title="⚡ High Risk Score - 0.85",
@@ -100,7 +100,7 @@ FINTECH_SCENARIOS = [
         expected_outcome="ESCALATE",
         teaching_point="Risk score >0.8 triggers manual review per 5AMLD Article 18"
     ),
-    
+
     DemoScenario(
         id="ft_006",
         title="❌ Missing Beneficiary",
