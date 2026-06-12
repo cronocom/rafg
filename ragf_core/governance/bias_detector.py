@@ -6,8 +6,8 @@ Implements proportionality testing for Section 7.5
 """
 
 from dataclasses import dataclass
-from typing import List, Dict, Optional
 from enum import Enum
+from typing import Dict, List, Optional
 
 
 class BiasType(Enum):

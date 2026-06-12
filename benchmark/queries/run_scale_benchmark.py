@@ -4,9 +4,9 @@ Mismas queries pero sobre el grafo grande (500 verbos, 200 regs)
 Compara degradación de latencia Neo4j vs PostgreSQL al escalar
 """
 import asyncio
-import time
-import statistics
 import json
+import statistics
+import time
 from datetime import datetime
 
 import asyncpg
@@ -158,7 +158,7 @@ async def bench_postgres_scale():
 
 async def main():
     print(f"\n{'='*65}")
-    print(f"  RAGF Scale Benchmark — 500 verbos, 200 regulaciones")
+    print("  RAGF Scale Benchmark — 500 verbos, 200 regulaciones")
     print(f"  Iteraciones: {ITERATIONS} por query | Timestamp: "
           f"{datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')}")
     print(f"{'='*65}\n")
@@ -171,7 +171,7 @@ async def main():
 
     # ── Tabla comparativa ─────────────────────────────────────────────────
     print(f"\n{'='*65}")
-    print(f"  COMPARATIVA DE ESCALA")
+    print("  COMPARATIVA DE ESCALA")
     print(f"{'='*65}")
     print(f"{'Verbo':<38} {'Regs':>4}  "
           f"{'Neo4j p50':>10} {'Neo4j p95':>10}  "
@@ -198,8 +198,8 @@ async def main():
     }
     with open("benchmark/results/scale_benchmark_results.json", "w") as f:
         json.dump(output, f, indent=2)
-    print(f"\n✓ Resultados guardados en "
-          f"benchmark/results/scale_benchmark_results.json")
+    print("\n✓ Resultados guardados en "
+          "benchmark/results/scale_benchmark_results.json")
 
 
 if __name__ == "__main__":

@@ -19,18 +19,14 @@ Test Coverage:
 - Unexpected exception in gate
 """
 
-import pytest
 import asyncio
-import os
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
-from shared.models import (
-    ActionPrimitive,
-    AMMLevel,
-    Verdict,
-    SemanticVerdict
-)
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
+import pytest
+
 from gateway.decision_engine import DecisionEngine
 from gateway.neo4j_client import Neo4jClient
+from shared.models import ActionPrimitive, AMMLevel, SemanticVerdict
 
 
 @pytest.fixture
@@ -92,7 +88,7 @@ async def test_neo4j_connection_failure(decision_engine, test_action, mock_neo4j
     assert verdict.semantic_verdict.coverage == 0.0
     assert len(verdict.validator_results) == 0
 
-    print(f"✅ TEST PASSED: Neo4j down → DENY")
+    print("✅ TEST PASSED: Neo4j down → DENY")
     print(f"   Reason: {verdict.reason}")
 
 
@@ -140,7 +136,7 @@ async def test_neo4j_query_timeout(decision_engine, test_action, mock_neo4j):
     assert verdict.semantic_verdict.decision == "DENY"
     assert verdict.semantic_verdict.coverage == 0.0
 
-    print(f"✅ TEST PASSED: Neo4j timeout → DENY")
+    print("✅ TEST PASSED: Neo4j timeout → DENY")
     print(f"   Reason: {verdict.reason}")
 
 
@@ -180,7 +176,7 @@ async def test_neo4j_query_exception(decision_engine, test_action, mock_neo4j):
     assert "ERROR" in verdict.reason or "error" in verdict.reason.lower()
     assert verdict.semantic_verdict.decision == "DENY"
 
-    print(f"✅ TEST PASSED: Neo4j exception → DENY")
+    print("✅ TEST PASSED: Neo4j exception → DENY")
     print(f"   Reason: {verdict.reason}")
 
 
@@ -274,7 +270,7 @@ async def test_validator_exception(decision_engine, test_action, mock_neo4j):
     assert validator_result.decision == "FAIL", "Exception should convert to FAIL"
     assert "exception" in validator_result.reason.lower()
 
-    print(f"✅ TEST PASSED: Validator exception → DENY")
+    print("✅ TEST PASSED: Validator exception → DENY")
     print(f"   Validator result: {validator_result.decision}")
     print(f"   Reason: {validator_result.reason}")
 
@@ -315,7 +311,7 @@ async def test_ultimate_catch_all(decision_engine, test_action, mock_neo4j):
     assert verdict.decision == "DENY", "Unexpected exception should result in DENY"
     assert "ERROR" in verdict.reason or "error" in verdict.reason.lower()
 
-    print(f"✅ TEST PASSED: Ultimate catch-all → DENY")
+    print("✅ TEST PASSED: Ultimate catch-all → DENY")
     print(f"   Reason: {verdict.reason}")
 
 
@@ -351,7 +347,7 @@ async def test_health_check_timeout(decision_engine, test_action, mock_neo4j):
     # Assert: DENY verdict
     assert verdict.decision == "DENY", "Health check timeout should result in DENY"
 
-    print(f"✅ TEST PASSED: Health check timeout → DENY")
+    print("✅ TEST PASSED: Health check timeout → DENY")
     print(f"   Reason: {verdict.reason}")
 
 
@@ -385,15 +381,15 @@ async def test_fail_closed_coverage_matrix():
     print("\n" + "="*60)
     print("FAIL-CLOSED COVERAGE MATRIX")
     print("="*60)
-    print(f"✅ Neo4j connection failure → DENY")
-    print(f"✅ Neo4j query timeout → DENY")
-    print(f"✅ Neo4j query exception → DENY")
-    print(f"✅ Signature generation failure → DENY")
-    print(f"✅ Validator exception → DENY")
-    print(f"✅ Unexpected exception → DENY")
-    print(f"✅ Health check timeout → DENY")
+    print("✅ Neo4j connection failure → DENY")
+    print("✅ Neo4j query timeout → DENY")
+    print("✅ Neo4j query exception → DENY")
+    print("✅ Signature generation failure → DENY")
+    print("✅ Validator exception → DENY")
+    print("✅ Unexpected exception → DENY")
+    print("✅ Health check timeout → DENY")
     print("="*60)
-    print(f"FORMAL PROPERTY VERIFIED: ∀ failure → DENY ✅")
+    print("FORMAL PROPERTY VERIFIED: ∀ failure → DENY ✅")
     print("="*60)
 
     # All tests passed if we get here

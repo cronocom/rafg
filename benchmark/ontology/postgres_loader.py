@@ -4,9 +4,11 @@ Schema relacional equivalente al grafo Neo4j
 Índices optimizados para darle a Postgres su mejor oportunidad
 """
 import asyncio
-import asyncpg
 import time
-from .psd2_data import VERBS, REGULATIONS, CONSTRAINTS
+
+import asyncpg
+
+from .psd2_data import CONSTRAINTS, REGULATIONS, VERBS
 
 PG_DSN = "postgresql://ragf:ragf_benchmark_2026@127.0.0.1:5433/ragf_ontology"
 
@@ -138,6 +140,6 @@ async def load_ontology() -> dict:
 
 if __name__ == "__main__":
     result = asyncio.run(load_ontology())
-    print(f"✓ Ontología cargada en PostgreSQL")
+    print("✓ Ontología cargada en PostgreSQL")
     print(f"  Filas totales: {result['rows']}")
     print(f"  Tiempo:        {result['duration_ms']} ms")

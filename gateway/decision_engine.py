@@ -16,18 +16,13 @@ from __future__ import annotations
 
 import asyncio
 import time
-import structlog
 from typing import List
-from shared.models import (
-    ActionPrimitive,
-    AMMLevel,
-    SemanticVerdict,
-    ValidatorResult,
-    Verdict
-)
-from shared.exceptions import ValidationTimeoutError
+
+import structlog
+
 from gateway.neo4j_client import Neo4jClient
 from gateway.validators.safety_validator import get_validator
+from shared.models import ActionPrimitive, AMMLevel, SemanticVerdict, ValidatorResult, Verdict
 
 logger = structlog.get_logger()
 
@@ -144,7 +139,7 @@ class DecisionEngine:
             return Verdict(
                 trace_id=trace_id,
                 decision="DENY",
-                reason=f"GATE_INTERNAL_ERROR | Unexpected exception: {str(e)}",
+                reason=f"GATE_INTERNAL_ERROR | Unexpected exception: {e!s}",
                 amm_level=amm_level,
                 semantic_verdict=SemanticVerdict(
                     decision="DENY",
@@ -256,11 +251,11 @@ class DecisionEngine:
             return Verdict(
                 trace_id=trace_id,
                 decision="DENY",
-                reason=f"SEMANTIC_VALIDATION_ERROR | {str(e)}",
+                reason=f"SEMANTIC_VALIDATION_ERROR | {e!s}",
                 amm_level=amm_level,
                 semantic_verdict=SemanticVerdict(
                     decision="DENY",
-                    reason=f"Semantic validation failed: {str(e)}",
+                    reason=f"Semantic validation failed: {e!s}",
                     ontology_match=False,
                     amm_authorized=False,
                     coverage=0.0
@@ -349,7 +344,7 @@ class DecisionEngine:
                     processed_results.append(ValidatorResult(
                         validator_name=validators[i].name,
                         decision="FAIL",
-                        reason=f"Validator raised exception: {str(result)}",
+                        reason=f"Validator raised exception: {result!s}",
                         latency_ms=0.0,
                         rule_violated=None
                     ))
@@ -445,7 +440,7 @@ class DecisionEngine:
             return Verdict(
                 trace_id=trace_id,
                 decision="DENY",
-                reason=f"SIGNATURE_GENERATION_FAILED | {str(e)}",
+                reason=f"SIGNATURE_GENERATION_FAILED | {e!s}",
                 amm_level=amm_level,
                 semantic_verdict=SemanticVerdict(
                     decision="DENY",

@@ -7,18 +7,19 @@ Punto de entrada HTTP para el Validation Gate
 
 import os
 import uuid
-import structlog
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Header
-from fastapi.middleware.cors import CORSMiddleware
-import redis.asyncio as redis
 
-from shared.models import ActionRequest, ValidationResponse, AMMLevel
-from gateway.neo4j_client import Neo4jClient
-from gateway.intent_normalizer import IntentNormalizer
-from gateway.decision_engine import DecisionEngine
+import redis.asyncio as redis
+import structlog
+from fastapi import FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+
 from audit.ledger import AuditLedger
 from audit.metrics import AuditMetrics
+from gateway.decision_engine import DecisionEngine
+from gateway.intent_normalizer import IntentNormalizer
+from gateway.neo4j_client import Neo4jClient
+from shared.models import ActionRequest, ValidationResponse
 
 # Configurar structured logging
 structlog.configure(

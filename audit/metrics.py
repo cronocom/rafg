@@ -5,9 +5,10 @@ Consultas de KPIs para el dashboard
 ═══════════════════════════════════════════════════════════
 """
 
+from typing import Any, Dict
+
 import asyncpg
 import structlog
-from typing import Dict, Any
 
 logger = structlog.get_logger()
 

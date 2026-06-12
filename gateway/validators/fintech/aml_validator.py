@@ -10,7 +10,8 @@ Author: Reflexio Studio
 License: Apache 2.0
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
+
 from .psd2_validator import Decision, ValidationResult
 
 

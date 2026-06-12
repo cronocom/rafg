@@ -7,13 +7,8 @@ Tests para shared/models.py
 
 import pytest
 from pydantic import ValidationError
-from shared.models import (
-    ActionPrimitive,
-    AMMLevel,
-    SemanticVerdict,
-    ValidatorResult,
-    Verdict
-)
+
+from shared.models import ActionPrimitive, AMMLevel, SemanticVerdict, ValidatorResult, Verdict
 
 
 def test_action_primitive_valid():

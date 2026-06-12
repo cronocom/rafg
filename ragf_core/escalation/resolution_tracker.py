@@ -6,12 +6,12 @@ Author: Yamil Rodriguez (Reflexio Studio)
 Purpose: Track human escalation decisions for consistency analysis
 """
 
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from typing import Optional, List, Dict
-import json
 import hashlib
+import json
+from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
+from typing import Dict, List, Optional
 
 
 class ResolutionOutcome(Enum):
@@ -248,6 +248,7 @@ class ResolutionSimulator:
         """
 
         import random
+
         import numpy as np
 
         # Set random seed for reproducibility
@@ -330,7 +331,6 @@ class ResolutionSimulator:
         This is DETERMINISTIC - same input = same output
         """
 
-        import random
 
         reason = log.get("reason", "").lower()
 

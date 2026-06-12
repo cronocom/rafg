@@ -7,6 +7,7 @@ Test end-to-end del flujo completo
 
 import pytest
 from httpx import AsyncClient
+
 from gateway.main import app
 
 

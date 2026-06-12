@@ -5,8 +5,10 @@ Usa prefijo BM_ en labels para no pisar datos existentes
 """
 import asyncio
 import time
+
 from neo4j import AsyncGraphDatabase
-from .psd2_data import VERBS, REGULATIONS, CONSTRAINTS
+
+from .psd2_data import CONSTRAINTS, REGULATIONS, VERBS
 
 NEO4J_URI      = "bolt://localhost:7687"
 NEO4J_USER     = "neo4j"
@@ -113,7 +115,7 @@ async def load_ontology() -> dict:
 
 if __name__ == "__main__":
     result = asyncio.run(load_ontology())
-    print(f"✓ Ontología cargada en Neo4j")
+    print("✓ Ontología cargada en Neo4j")
     print(f"  Nodos:         {result['nodes']}")
     print(f"  Relaciones:    {result['relationships']}")
     print(f"  Tiempo:        {result['duration_ms']} ms")

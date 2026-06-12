@@ -8,17 +8,18 @@ License: Apache 2.0
 """
 
 import time
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
+from .aml_validator import (
+    AMLRiskScoreValidator,
+    AMLThresholdValidator,
+)
 from .psd2_validator import (
     Decision,
-    ValidationResult,
-    PSD2SCAValidator,
-    PSD2LimitValidator,
     PSD2BeneficiaryValidator,
-)
-from .aml_validator import (
-    AMLThresholdValidator,
-    AMLRiskScoreValidator,
+    PSD2LimitValidator,
+    PSD2SCAValidator,
+    ValidationResult,
 )
 
 

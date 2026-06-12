@@ -9,8 +9,9 @@ Define la interfaz que deben implementar todos los validadores.
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 import time
+from abc import ABC, abstractmethod
+
 from shared.models import ActionPrimitive, ValidatorResult
 
 
@@ -56,7 +57,7 @@ class BaseValidator(ABC):
             return ValidatorResult(
                 validator_name=self.name,
                 decision="FAIL",
-                reason=f"Validator exception: {str(e)}",
+                reason=f"Validator exception: {e!s}",
                 latency_ms=latency,
                 rule_violated=None
             )

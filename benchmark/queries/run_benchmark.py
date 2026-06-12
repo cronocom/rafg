@@ -8,9 +8,9 @@ Neo4j vs PostgreSQL para validación semántica de ontología PSD2
   Q3 — AMM gate check: validación completa con filtro de nivel de madurez
 """
 import asyncio
-import time
-import statistics
 import json
+import statistics
+import time
 from datetime import datetime
 
 import asyncpg
@@ -171,7 +171,7 @@ async def bench_postgres(iterations: int) -> dict:
 
 async def main():
     print(f"\n{'='*60}")
-    print(f"  RAGF Benchmark — Neo4j vs PostgreSQL")
+    print("  RAGF Benchmark — Neo4j vs PostgreSQL")
     print(f"  Iteraciones: {ITERATIONS} por query")
     print(f"  Timestamp: {datetime.utcnow().isoformat()}Z")
     print(f"{'='*60}\n")
@@ -184,7 +184,7 @@ async def main():
 
     # ── Tabla comparativa ─────────────────────────────────────────────────
     print(f"\n{'='*60}")
-    print(f"  RESULTADOS — latencia en ms")
+    print("  RESULTADOS — latencia en ms")
     print(f"{'='*60}")
     print(f"{'Query':<18} {'DB':<10} {'Verdict':<8} "
           f"{'p50':>8} {'p95':>8} {'p99':>8} {'mean':>8}")
@@ -207,7 +207,7 @@ async def main():
     }
     with open("benchmark/results/benchmark_results.json", "w") as f:
         json.dump(output, f, indent=2)
-    print(f"\n✓ Resultados guardados en benchmark/results/benchmark_results.json")
+    print("\n✓ Resultados guardados en benchmark/results/benchmark_results.json")
 
 
 if __name__ == "__main__":

@@ -4,8 +4,9 @@ Genera ontología sintética grande para test de escalabilidad
 500 verbos, 200 regulaciones, 500 constraints
 Simula un entorno multi-jurisdicción real (EU + US + UK + APAC)
 """
-import random
 import asyncio
+import random
+
 import asyncpg
 from neo4j import AsyncGraphDatabase
 
@@ -230,11 +231,12 @@ async def main():
 
     print("\n✓ Datos de escala listos en ambas bases")
     # Guardar algunos verbos de prueba para el benchmark
-    import json, random
+    import json
+    import random
     sample = random.sample(verbs, 5)
     with open("benchmark/results/scale_test_verbs.json", "w") as f:
         json.dump(sample, f, indent=2)
-    print(f"  Verbos de prueba guardados en benchmark/results/scale_test_verbs.json")
+    print("  Verbos de prueba guardados en benchmark/results/scale_test_verbs.json")
 
 
 if __name__ == "__main__":

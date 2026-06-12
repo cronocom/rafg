@@ -11,8 +11,9 @@ Fase 5: Validación Mínima del MVA
 """
 
 import pytest
-from shared.models import ActionPrimitive, AMMLevel
+
 from gateway.decision_engine import DecisionEngine
+from shared.models import ActionPrimitive, AMMLevel
 
 
 @pytest.mark.asyncio
@@ -174,7 +175,7 @@ async def test_scenario_deny_amm_violation(neo4j_client, sample_action):
     assert verdict.semantic_verdict.amm_authorized is False
     assert "AMM" in verdict.reason or "Level" in verdict.reason
 
-    print(f"✅ DENY (AMM violation) scenario passed")
+    print("✅ DENY (AMM violation) scenario passed")
 
 
 def test_summary():

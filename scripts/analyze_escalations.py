@@ -4,18 +4,15 @@
 Generate escalation metrics for AIES camera-ready
 """
 
-import sys
 import json
+import sys
 from pathlib import Path
 
 # CRÍTICO: Add project root to Python path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from ragf_core.escalation.resolution_tracker import (
-    ResolutionSimulator,
-    ResolutionAnalyzer
-)
+from ragf_core.escalation.resolution_tracker import ResolutionAnalyzer, ResolutionSimulator
 
 
 def load_escalation_logs(domain: str) -> list:
@@ -127,7 +124,7 @@ def main():
             print(f"  Total Cases:   {time_stats['total_resolutions']:>10d}")
 
         # 2. Inter-Operator Consistency
-        print(f"\n2️⃣  INTER-OPERATOR CONSISTENCY")
+        print("\n2️⃣  INTER-OPERATOR CONSISTENCY")
         print("-" * 70)
         consistency = analyzer.inter_operator_consistency()
 
@@ -147,7 +144,7 @@ def main():
                 print(f"    ... and {remaining} more pairs")
 
         # 3. Jurisprudence Growth
-        print(f"\n3️⃣  JURISPRUDENCE GROWTH ANALYSIS")
+        print("\n3️⃣  JURISPRUDENCE GROWTH ANALYSIS")
         print("-" * 70)
         growth = analyzer.jurisprudence_growth_rate()
         print(f"  Total Escalations:    {growth['total_escalations']:>6d}")

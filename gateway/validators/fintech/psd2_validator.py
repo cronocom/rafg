@@ -13,7 +13,7 @@ License: Apache 2.0
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
 
 
 class Decision(Enum):

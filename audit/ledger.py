@@ -5,11 +5,12 @@ Escritura inmutable en TimescaleDB
 ═══════════════════════════════════════════════════════════
 """
 
+
 import asyncpg
 import structlog
-from datetime import datetime
-from shared.models import Verdict
+
 from shared.exceptions import AuditWriteError
+from shared.models import Verdict
 
 logger = structlog.get_logger()
 

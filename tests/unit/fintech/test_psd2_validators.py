@@ -4,11 +4,12 @@ Unit Tests - PSD2 Validators
 """
 
 import pytest
+
 from gateway.validators.fintech.psd2_validator import (
     Decision,
-    PSD2SCAValidator,
-    PSD2LimitValidator,
     PSD2BeneficiaryValidator,
+    PSD2LimitValidator,
+    PSD2SCAValidator,
 )
 
 

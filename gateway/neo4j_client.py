@@ -10,11 +10,13 @@ Este módulo gestiona la "Autoridad Semántica":
 - Devuelve los validadores requeridos para la acción
 """
 
+from typing import List, Optional
+
 import structlog
-from neo4j import AsyncGraphDatabase, AsyncDriver
-from typing import Optional, List
-from shared.models import ActionPrimitive, SemanticVerdict, AMMLevel
-from shared.exceptions import SemanticDriftError, AMMViolationError, OntologyNotFoundError
+from neo4j import AsyncDriver, AsyncGraphDatabase
+
+from shared.exceptions import OntologyNotFoundError
+from shared.models import ActionPrimitive, AMMLevel, SemanticVerdict
 
 logger = structlog.get_logger()
 

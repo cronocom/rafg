@@ -9,13 +9,15 @@ Restricción: No puede inventar verbos fuera de la ontología.
 """
 
 import asyncio
-import structlog
-import anthropic
-from typing import Tuple, Literal
 import json
+from typing import Literal, Tuple
+
+import anthropic
 import redis.asyncio as redis
-from shared.models import ActionPrimitive
+import structlog
+
 from shared.exceptions import SemanticDriftError
+from shared.models import ActionPrimitive
 
 logger = structlog.get_logger()
 

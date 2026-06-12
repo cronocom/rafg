@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-import pandas as pd
-import matplotlib.pyplot as plt
 from pathlib import Path
+
+import matplotlib.pyplot as plt
+import pandas as pd
 
 CSV_FILE = Path("latency_comparison.csv")
 OUTPUT_DIR = Path("figures")

@@ -3,7 +3,6 @@
 Insert escalation analysis sections into RAGF_v2_3.tex
 """
 
-import re
 
 # Read the main paper
 with open('papers/RAGF_v2_3.tex', 'r') as f:

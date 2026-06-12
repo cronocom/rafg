@@ -5,9 +5,10 @@ Fixtures compartidos para todos los tests
 ═══════════════════════════════════════════════════════════
 """
 
+import os
+
 import pytest
 import pytest_asyncio
-import os
 
 # Configurar variables de entorno para tests
 # IMPORTANTE: Dentro de Docker, usar nombres de servicio, no localhost

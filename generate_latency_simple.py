@@ -9,11 +9,10 @@ Author: RAGF Framework
 """
 
 import csv
-import subprocess
 import platform
+import subprocess
 from datetime import datetime
 from pathlib import Path
-
 
 OUTPUT_FILE = Path("latency_comparison.csv")
 

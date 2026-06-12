@@ -4,20 +4,20 @@ RAGF Demo Engine - FastAPI Application
 Interactive demo server for fintech validators.
 """
 
+import sys
+import time
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import sys
-import time
-from pathlib import Path
 
 # Add gateway to path
 sys.path.insert(0, '/app')
 
 # Import fintech validators directly
-from gateway.validators.fintech.composite_validator import FintechValidationEngine
 from app.demos.fintech_scenarios import FINTECH_SCENARIOS, get_scenario
 
+from gateway.validators.fintech.composite_validator import FintechValidationEngine
 
 app = FastAPI(
     title="RAGF Demo Engine",

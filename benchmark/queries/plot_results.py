@@ -3,10 +3,12 @@ RAGF Benchmark — Visualizaciones
 Genera 3 gráficas publicables desde los resultados JSON
 """
 import json
+
 import matplotlib
+
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
 import numpy as np
 
 # ── Colores AgentSafe ─────────────────────────────────────────────────────────
